@@ -33,7 +33,6 @@ class Auth extends MY_Controller
         return $this->jsonRes(401, ['success' => false, 'message' => $ums['message']]);
     }
 
-    // Data dari API Pusat sesuai strukturnya
     $userData = $ums['data']; 
     $roles = $userData['detil'] ?? [];
 
@@ -47,8 +46,7 @@ class Auth extends MY_Controller
         'exp'   => time() + (int)($this->config->item('jwt_expire') ?: 86400)
     ];
 
-    // Gunakan key dari config atau hardcode jika testing
-    $key = $this->config->item('jwt_key') ?: "SECRET_KITA_123";
+    $key = $this->config->item('jwt_key') ?: "SECRET_123";
     $token = jwt_encode($payload, $key);
 
     return $this->jsonRes(200, [
