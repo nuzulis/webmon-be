@@ -10,38 +10,38 @@ class BillingBatal_model extends BaseModelStrict
 {
     private $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/batal/billing';
 
-    /* =====================================================
-     * FETCH DATA BILLING BATAL DARI SIMPONI
-     * ===================================================== */
     public function fetch($f)
-    {
-        $karantinaMap = [
-            'kh' => 'H',
-            'ki' => 'I',
-            'kt' => 'T',
-        ];
+{
+    $karantinaMap = [
+        'kh' => 'H',
+        'ki' => 'I',
+        'kt' => 'T',
+    ];
 
-        $payload = [
-            'dFrom' => $f['start_date'],
-            'dTo'   => $f['end_date'],
-            'kar'   => $karantinaMap[strtolower($f['karantina'] ?? '')] ?? '',
-            'upt'   => ($f['upt'] !== 'all' && $f['upt'])
-                        ? substr($f['upt'], 0, 2) // Mengambil 2 digit awal kode UPT jika perlu
-                        : '',
-        ];
+    $uptInput = $f['upt'] ?? 'all';
+    $uptField = '';
 
-        $response = $this->curlPostJson($this->endpoint, json_encode($payload));
-
-        if (!$response || empty($response['status']) || empty($response['data'])) {
-            return [];
-        }
-
-        return $this->normalize($response['data']);
+    if ($uptInput !== 'all' && !empty($uptInput)) {
+        $uptField = (strlen($uptInput) > 2) ? substr($uptInput, 0, 2) : $uptInput;
     }
 
-    /* =====================================================
-     * NORMALISASI DATA
-     * ===================================================== */
+    $payload = [
+        'dFrom' => $f['start_date'] ?? '',
+        'dTo'   => $f['end_date'] ?? '',
+        'kar'   => $karantinaMap[strtolower($f['karantina'] ?? '')] ?? '',
+        'upt'   => $uptField,
+    ];
+
+
+    $response = $this->curlPostJson($this->endpoint, json_encode($payload));
+
+    if (!$response || empty($response['status']) || empty($response['data'])) {
+        return [];
+    }
+
+    return $this->normalize($response['data']);
+}
+
     private function normalize($rows)
 {
     if (!is_array($rows)) return [];
@@ -49,6 +49,7 @@ class BillingBatal_model extends BaseModelStrict
     $out = [];
     foreach ($rows as $r) {
         $out[] = [
+            'id'            => $r['id'] ?? '',
             'nama_upt'      => $r['nama_upt'] ?? '',
             'karantina'     => $this->mapKarantina($r['jenis_karantina'] ?? ''),
             'total_bill'    => (float) ($r['total_bill'] ?? 0), // Native menggunakan total_bill
@@ -76,19 +77,12 @@ class BillingBatal_model extends BaseModelStrict
         };
     }
 
-    /* =====================================================
-     * IMPLEMENTASI ABSTRACT METHODS (BaseModelStrict)
-     * Menyesuaikan signature agar kompatibel dengan parent
-     * ===================================================== */
 
     public function getIds($filter = [], $limit = null, $offset = null): array
     {
         return [];
     }
 
-    /**
-     * Parent mengharapkan parameter array $ids
-     */
      public function getByIds($ids)
     {
         return [];
@@ -115,10 +109,10 @@ class BillingBatal_model extends BaseModelStrict
         ]);
 
         $res = curl_exec($ch);
-
-        // Perbaikan Warning P1007: 
-        // Pada PHP 8.0+, curl_close tidak lagi wajib karena resource otomatis ditutup.
-        // Namun jika ingin tetap ada, cek validitas handle-nya dulu.
+        if (empty($res)) {
+    log_message('error', 'CURL Error: ' . curl_error($ch));
+}
+log_message('error', 'Raw Response Simponi: ' . $res);
         if (is_resource($ch) || (is_object($ch) && $ch instanceof \CurlHandle)) {
             curl_close($ch);
         }

@@ -26,15 +26,4 @@ class Auth_model extends CI_Model
             ->get()
             ->result_array();
     }
-
-    /**
-     * OPTIONAL:
-     * Kalau pakai password lokal (bukan SSO)
-     */
-    public function verify_password(array $user, string $password): bool
-    {
-        // contoh:
-        // return password_verify($password, $user['password']);
-        return true;
-    }
 }

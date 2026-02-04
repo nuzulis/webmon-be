@@ -6,7 +6,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Cell\DataType; // Tambahkan ini
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 
 class Excel_handler {
 
@@ -16,8 +16,6 @@ class Excel_handler {
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     $currentRow = 1;
-
-    // --- 1. CETAK HEADER INFORMASI (JUDUL, UPT, DLL) ---
     foreach (['judul', 'upt', 'periode', 'pencetak', 'source', 'report_id'] as $key) {
         if (!empty($reportInfo[$key])) {
             $sheet->setCellValue('A' . $currentRow, $reportInfo[$key]);
@@ -30,7 +28,6 @@ class Excel_handler {
     $startRowTable = $currentRow;
     $colChar = 'A';
     foreach ($headers as $h) {
-        // Gunakan setCellValue untuk header (Teks statis)
         $sheet->setCellValue($colChar . $currentRow, $h);
         
         $sheet->getStyle($colChar . $currentRow)->applyFromArray([
@@ -50,14 +47,10 @@ class Excel_handler {
         $sheet->getColumnDimension($colChar)->setAutoSize(true);
         $colChar++;
     }
-
-    // --- 3. ISI DATA (KUNCI PERBAIKAN 2: Proteksi Formula) ---
-    $currentRow++; // Pindah ke baris pertama data
+    $currentRow++;
     foreach ($data as $rowData) {
         $currentCol = 'A';
         foreach ($rowData as $cellValue) {
-            // Kita paksa SEMUA sel data menjadi TYPE_STRING
-            // Ini akan mencegah karakter '=' di awal string dianggap formula
             $sheet->setCellValueExplicit(
                 $currentCol . $currentRow, 
                 (string)$cellValue, 
@@ -68,14 +61,12 @@ class Excel_handler {
         $currentRow++;
     }
 
-    // --- 4. STYLING BORDER ---
     $highestRow = $sheet->getHighestRow();
     $highestCol = $sheet->getHighestColumn();
     $sheet->getStyle("A$startRowTable:$highestCol$highestRow")
           ->getBorders()->getAllBorders()
           ->setBorderStyle(Border::BORDER_THIN);
 
-    // --- 5. DOWNLOAD ---
     $finalFilename = $filename . "_" . date('Ymd_His') . ".xlsx";
     if (ob_get_contents()) ob_clean();
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

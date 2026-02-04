@@ -1,14 +1,35 @@
 
 <?php
-header('Access-Control-Allow-Origin: http://localhost:5173');
+
+$envPath = __DIR__ . '/.env';
+if (file_exists($envPath)) {
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        [$name, $value] = array_map('trim', explode('=', $line, 2));
+        putenv("$name=$value");
+        $_ENV[$name] = $value;
+    }
+}
+
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+];
+
+if (isset($_SERVER['HTTP_ORIGIN']) && in_array($_SERVER['HTTP_ORIGIN'], $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+}
+
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header("HTTP/1.1 200 OK");
+    http_response_code(200);
     exit;
 }
+
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 ini_set('display_errors', 'On');
 
@@ -66,7 +87,8 @@ ini_set('display_errors', 'On');
  *
  * NOTE: If you change these, also change the error_reporting() code below
  */
-	define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+	// define('ENVIRONMENT', isset($_SERVER['CI_ENV']) ? $_SERVER['CI_ENV'] : 'development');
+define('ENVIRONMENT', getenv('APP_ENV') === 'prod' ? 'production' : 'development');
 
 /*
  *---------------------------------------------------------------

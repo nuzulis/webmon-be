@@ -2,7 +2,6 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Detail e-Cert (render PDF / HTML langsung)
  *
  * @property M_Ecert $ecert
  */
@@ -14,10 +13,6 @@ class EcertDetail extends MY_Controller
         $this->load->model('M_Ecert', 'ecert');
     }
 
-    /**
-     * Render e-Cert berdasarkan id_cert
-     * OUTPUT: binary (PDF / HTML)
-     */
     public function view()
     {
         $idCert   = trim($this->input->post('id_cert'));
@@ -33,8 +28,6 @@ class EcertDetail extends MY_Controller
         if (!$result) {
             return $this->json_error('Gagal mengambil dokumen e-Cert');
         }
-
-        // IMPORTANT: output RAW binary
         $this->output
             ->set_content_type($result['content_type'])
             ->set_header('Content-Disposition: inline')

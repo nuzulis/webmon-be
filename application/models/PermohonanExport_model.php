@@ -53,8 +53,6 @@ class PermohonanExport_model extends CI_Model {
         $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
         $this->db->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
         $this->db->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left');
-
-        // KOMODITAS BY KARANTINA
         if ($f['karantina'] === 'kh') {
             $this->db->join('komoditas_hewan kom', 'pkom.komoditas_id = kom.id');
             $this->db->join('klasifikasi_hewan klas', 'pkom.klasifikasi_id = klas.id');
@@ -65,8 +63,6 @@ class PermohonanExport_model extends CI_Model {
             $this->db->join('komoditas_tumbuhan kom', 'pkom.komoditas_id = kom.id');
             $this->db->join('klasifikasi_tumbuhan klas', 'pkom.klasifikasi_id = klas.id');
         }
-
-        // FILTER
         $this->db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',

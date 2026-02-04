@@ -12,21 +12,13 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class MY_Controller extends CI_Controller
 {
-    /** ==============================
-     *  PROPERTIES
-     *  ============================== */
     public array $user = [];
     protected array $featurePolicy = [];
     protected $db_ums;
 
-    /** ==============================
-     *  CONSTRUCTOR
-     *  ============================== */
     public function __construct()
     {
         parent::__construct();
-
-        // 1. Load Resource
         $this->db_ums = $this->load->database('ums', TRUE);
         $this->load->library('user_agent');
         $this->load->helper(['jwt', 'url']);
@@ -35,14 +27,8 @@ class MY_Controller extends CI_Controller
 
         $this->featurePolicy = (array) $this->config->item('feature_policy');
         date_default_timezone_set('Asia/Jakarta');
-
-        // 2. Proteksi & Logging
         $this->handleSecurity();
     }
-
-    /** ==============================
-     *  SECURITY HANDLER
-     *  ============================== */
     protected function handleSecurity(): void
     {
         $controller = strtolower($this->router->fetch_class());
@@ -64,21 +50,18 @@ class MY_Controller extends CI_Controller
         $this->requireFeature($category . '.' . $controller);
     }
 
-    /** ==============================
-     *  FEATURE CATEGORY
-     *  ============================== */
     protected function determineCategory(string $controller): string
     {
         $map = [
             'operasional' => [
-                'permohonan', 'monitoring', 'transaksi', 'revisi',
+                'permohonan', 'monitoring', 'domasonline', 'transaksi', 'revisi',
                 'perlakuan', 'serahterima', 'batalpermohonan',
-                'nnc', 'elab', 'detail'
+                'nnc',  'detail'
             ],
             'tindakan' => [
                 'periksaadmin', 'periksalapangan', 'periksafisik',
                 'penahanan', 'penolakan', 'pengasingan',
-                'pemusnahan', 'pelepasan', 'tangkapan'
+                'pemusnahan', 'pelepasan', 'tangkapan', 'elab', 'elabdetail'
             ],
             'pnbp' => [
                 'kwitansi', 'kwitansibatal', 'kwitansibelumbayar',
@@ -102,9 +85,15 @@ class MY_Controller extends CI_Controller
         return 'umum';
     }
 
-    /** ==============================
-     *  JWT VALIDATION
-     *  ============================== */
+    protected function json($data, int $code = 200)
+    {
+        return $this->output
+            ->set_status_header($code)
+            ->set_content_type('application/json')
+            ->set_output(json_encode($data));
+    }
+
+    
     protected function validateJwt(): void
     {
         $auth =
@@ -130,9 +119,6 @@ class MY_Controller extends CI_Controller
         $this->user = (array) $payload;
     }
 
-    /** ==============================
-     *  FEATURE AUTHORIZATION
-     *  ============================== */
     protected function requireFeature(string $feature): void
     {
         if (empty($this->user['detil']) || !is_array($this->user['detil'])) {
@@ -170,9 +156,8 @@ class MY_Controller extends CI_Controller
         $this->deny('Akses fitur ditolak: ' . $feature);
     }
 
-    /** ==============================
-     *  DATA SCOPE (UPT)
-     *  ============================== */
+
+
     protected function applyScope(array &$filter): void
     {
         $userUpt = (string) ($this->user['upt'] ?? '');
@@ -187,9 +172,6 @@ class MY_Controller extends CI_Controller
         $filter['upt_id'] = $userUpt;
     }
 
-    /** ==============================
-     *  ACTIVITY LOG
-     *  ============================== */
     public function logActivity(?string $customAction = null): bool
     {
         $controller = strtoupper($this->router->fetch_class());
@@ -210,9 +192,6 @@ class MY_Controller extends CI_Controller
         ]);
     }
 
-    /** ==============================
-     *  UTILITIES
-     *  ============================== */
     protected function uuidV4(): string
     {
         $data = random_bytes(16);
@@ -235,9 +214,6 @@ class MY_Controller extends CI_Controller
         exit;
     }
 
-    /** ==============================
-     *  REPORT HEADER
-     *  ============================== */
     protected function buildReportHeader(string $title, array $filters, array $data = []): array
     {
         $uptName = (!empty($filters['upt_id']) && $filters['upt_id'] !== 'all')

@@ -3,7 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 $route['api/monitoring'] = 'api/monitoring/index';
 $route['api/monitoring/count'] = 'api/monitoring/count';
 $route['api/monitoring/(:any)'] = 'api/monitoring/$1';
-
+$route['api/carikuitansi'] = 'api/carikuitansi/index';
 
 /*
 | -------------------------------------------------------------------------
@@ -59,4 +59,19 @@ $route['default_controller'] = 'welcome';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 $route['api/auth/login'] = 'api/auth/login';
+$route['api/dashboard/freq-3p']         = 'api/dashboard/freq_3p';
+$route['api/dashboard/freq-permohonan'] = 'api/dashboard/freq_permohonan';
+
+$route['api/dashboard/sla-ekspor'] = 'api/dashboard/sla_ekspor';
+$route['api/dashboard/sla-impor']  = 'api/dashboard/sla_impor';
+$route['api/dashboard/test-db'] = 'api/dashboard/test_db';
+$route['api/dashboard/top-komoditi'] = 'api/dashboard/top_komoditi';
+$route['api/carikuitansi']        = 'api/carikuitansi';
+$route['api/elab/detail/(:any)'] = 'ElabDetail/detail/$1';
+$route['api/pemeriksaanlapangan'] = 'api/PeriksaLapangan/index';
+$route['api/pemeriksaanlapangan/export_excel'] = 'api/PeriksaLapangan/export_excel';
+$route['pemeriksaan-lapangan/detail/(:any)'] = 'PeriksaLapangan/detail/$1';
+
+$route['api/system/info'] = 'api/system/info';
+
 

@@ -57,7 +57,6 @@ class PriorNotice_model extends CI_Model
 
         $json = json_decode($response, true);
 
-        // Validasi struktur JSON dari API Pusat
         if (!isset($json['status']) || $json['status'] != 1) {
             return [
                 'success' => false,

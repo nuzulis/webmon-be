@@ -22,49 +22,40 @@ class Transaksi extends MY_Controller
 
     public function index()
     {
-        /* ===== JWT ===== */
         $auth = $this->input->get_request_header('Authorization', TRUE);
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
+            return $this->json(401);
         }
         
 
-        /* ===== FILTER ===== */
-        $filters = [
+        
+       $filters = [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
             'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+            'start_date' => $this->input->get('start_date', TRUE) ?: date('Y-m-d'),
+            'end_date'   => $this->input->get('end_date', TRUE) ?: date('Y-m-d'),
         ];
 
         if (!empty($filters['karantina']) &&
             !in_array($filters['karantina'], ['H','I','T'], true)
         ) {
-            return $this->json(400, [
-                'success' => false,
-                'message' => 'Jenis karantina tidak valid (H | I | T)'
-            ]);
+            return $this->json(400);
         }
 
-        /* ===== PAGINATION ===== */
-        $page    = max((int)$this->input->get('page'), 1);
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int)$this->input->get('per_page');
-        $perPage = $perPage > 0 ? min($perPage, 25) : 20;
-
+       
+        $page    = max((int) $this->input->get('page'), 1);
+        $perPage = ((int) $this->input->get('per_page') === 10) ? 10 : 10;
         $offset  = ($page - 1) * $perPage;
 
-        /* ===== STEP 1 ===== */
+        $offset  = ($page - 1) * $perPage;
         $ids = $this->Transaksi_model->getIds($filters, $perPage, $offset);
-
-        /* ===== STEP 2 ===== */
         $rows = empty($ids)
             ? []
             : $this->Transaksi_model->getByIds($ids, $filters['karantina']);
-
-        /* ===== TOTAL ===== */
         $total = $this->Transaksi_model->countAll($filters);
 
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'data'    => $rows,
             'meta'    => [
@@ -73,7 +64,7 @@ class Transaksi extends MY_Controller
                 'total'      => $total,
                 'total_page' => (int) ceil($total / $perPage),
             ]
-        ]);
+        ],200);
     }
 
     public function export_excel()
@@ -90,20 +81,17 @@ class Transaksi extends MY_Controller
         'start_date' => $today . ' 00:00:00',
         'end_date'   => $today . ' 23:59:59'
     ];
-
-    /* 2. Ambil Data (Limit 5000) */
-    // getIds akan menggunakan filter tanggal hari ini yang sudah kita set di atas
-    $ids = $this->Transaksi_model->getIds($filters, 5000, 0);
+   $ids = $this->Transaksi_model->getIds($filters, 5000, 0);
     $rows = $ids ? $this->Transaksi_model->getByIds($ids, $filters['karantina']) : [];
 
-    /* 3. Setup Header Excel */
+
     $headers = [
         'No', 'Sumber', 'No. Aju', 'Tgl Aju', 'No. Dokumen', 'Tgl Dokumen',
         'UPT', 'Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
         'Tempat Periksa', 'Tgl Periksa', 'Komoditas', 'HS Code', 'Volume', 'Satuan'
     ];
 
-    /* 4. Mapping Data dengan Logika IDEM */
+    
     $exportData = [];
     $no = 1;
     $lastAju = null;
@@ -142,11 +130,5 @@ class Transaksi extends MY_Controller
     return $this->excel_handler->download("Transaksi_Hari_Ini_" . date('Ymd'), $headers, $exportData, $reportInfo);
 }
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
+ 
 }

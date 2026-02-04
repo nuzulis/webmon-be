@@ -17,151 +17,139 @@ class Nnc extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    /**
-     * GET /api/nnc
-     */
     public function index()
-    {
-        /* ===== JWT ===== */
-        $auth = $this->input->get_request_header('Authorization', TRUE);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
-        }
-        
-
-        /* ===== FILTER ===== */
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-        ];
-
-        if (!empty($filters['karantina']) &&
-            !in_array($filters['karantina'], ['H','I','T'], true)
-        ) {
-            return $this->json(400, [
-                'success' => false,
-                'message' => 'Jenis karantina tidak valid (H | I | T)'
-            ]);
-        }
-
-        /* ===== PAGINATION ===== */
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int)$this->input->get('per_page');
-        $perPage = $perPage > 0 ? min($perPage, 25) : 20;
-
-        $offset  = ($page - 1) * $perPage;
-
-        /* ===== STEP 1 ===== */
-        $ids = $this->Nnc_model->getIds($filters, $perPage, $offset);
-
-        /* ===== STEP 2 ===== */
-        $rows = empty($ids)
-            ? []
-            : $this->Nnc_model->getByIds($ids, $filters['karantina']);
-
-        /* ===== TOTAL ===== */
-        $total = $this->Nnc_model->countAll($filters);
-
-        return $this->json(200, [
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ]);
-    }
-
-    public function export_excel() 
 {
-    // ... (kode filter sama dengan index) ...
+    $auth = $this->input->get_request_header('Authorization', TRUE);
+    if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
+        return $this->json(401);
+    }
+    
     $filters = [
         'upt'        => $this->input->get('upt', TRUE),
         'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-        'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+        'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))), 
         'start_date' => $this->input->get('start_date', TRUE),
         'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
     ];
 
-    // Ambil semua data tanpa limit untuk export
-    $ids = $this->Nnc_model->getIds($filters, 5000, 0); 
-    $rows = $this->Nnc_model->getByIds($ids);
+    if (!empty($filters['karantina']) && !in_array($filters['karantina'], ['H','I','T'], true)) {
+        return $this->json(['success' => false, 'message' => 'Jenis karantina tidak valid']);
+    }
 
-    $headers = [
-        'No', 'Pengajuan via', 'No. NNC', 'Tgl NNC', 'Satpel', 'Tujuan NNC',
-        'Pengirim', 'Penerima', 'Asal', 'Tujuan', 'Komoditas', 'Volume', 
-        'Volume P6', 'Satuan', 'NATURE OF NON-COMPLIANCE', 
-        'DISPOSITION OF THE CONSIGNMENT', 'Details', 'No. K-1.1', 'Tgl K-1.1', 'Petugas'
-    ];
-
-    $exportData = [];
-    $no = 1;
-    $lastId = null;
-
-    foreach ($rows as $r) {
-        // Cek apakah ini masih dokumen yang sama dengan baris sebelumnya
-        $isIdem = ($r['id'] === $lastId);
-        
-        // Olah pesan Nature of Non-Compliance (Specify 1-5)
-        $messages = [];
+    $page    = max((int) $this->input->get('page'), 1);
+    $perPage = 10;
+    $offset  = ($page - 1) * $perPage;
+    $ids = $this->Nnc_model->getIds($filters, $perPage, $offset);
+    $rows = [];
+    if (!empty($ids)) {
+        $rows = $this->Nnc_model->getByIds($ids, $filters['karantina']);
         $labels = [
             1 => 'Prohibited goods: ',
             2 => 'Problem with documentation (specify): ',
-            3 => 'The goods were infected/infested/contaminated (specify): ',
-            4 => 'Non-compliance food safety (specify): ',
-            5 => 'Non-compliance other SPS (specify): '
+            3 => 'The goods were infected/infested/contaminated with pests (specify): ',
+            4 => 'The goods do not comply with food safety (specify): ',
+            5 => 'The goods do not comply with other SPS (specify): '
         ];
-        foreach (range(1, 5) as $i) {
-            if (!empty($r["specify$i"])) $messages[] = $labels[$i] . $r["specify$i"];
+
+        foreach ($rows as &$r) { 
+            $messages = [];
+            for ($i = 1; $i <= 5; $i++) {
+                $fld = "specify" . $i;
+                if (!empty($r[$fld])) {
+                    $messages[] = "<strong>" . $labels[$i] . "</strong> " . htmlspecialchars($r[$fld]);
+                }
+            }
+            $r['nnc_reason'] = !empty($messages) ? implode('<br>', $messages) : '-';
+            $r['consignment'] = "The " . ($r['consignment'] ?? '') . " lot was: " . ($r['information'] ?? '');
         }
-
-        $exportData[] = [
-            // HANYA KOLOM NOMOR YANG IDEM
-            $isIdem ? '' : $no++,                                      
-            
-            // KOLOM LAINNYA TETAP MUNCUL (TIDAK IDEM)
-            isset($r['tssm_id']) ? 'SSM' : 'PTK',
-            $r['nomor_nnc'],
-            $r['tgl_nnc'],
-            ($r['upt'] . ' - ' . $r['nama_satpel']),
-            $r['kepada'],
-            $r['nama_pengirim'],
-            $r['nama_penerima'],
-            ($r['asal'] . ' - ' . $r['kota_asal']),
-            ($r['tujuan'] . ' - ' . $r['kota_tujuan']),
-            $r['komoditas_single'],
-            $r['volume_single'],
-            $r['volume_p6_single'],
-            $r['satuan_single'],
-            implode("\n", $messages),
-            "The {$r['consignment']} lot was: {$r['information']}",
-            $r['consignment_detil'],
-            $r['no_dok_permohonan'],
-            $r['tgl_dok_permohonan'],
-            $r['petugas'],
-        ];
-
-        $lastId = $r['id'];
+        unset($r); 
     }
 
-    $title = "LAPORAN NOTIFICATION OF NON-COMPLIANCE " . strtoupper($filters['karantina']);
-    $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+    $total = $this->Nnc_model->countAll($filters);
 
-    $this->load->library('excel_handler');
-    return $this->excel_handler->download("Laporan_NNC", $headers, $exportData, $reportInfo);
+    return $this->json([
+        'success' => true,
+        'data'    => $rows,
+        'meta'    => [
+            'page'       => $page,
+            'per_page'   => $perPage,
+            'total'      => $total,
+            'total_page' => (int) ceil($total / $perPage),
+        ]
+    ], 200);
 }
 
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
+    public function export_excel() 
+{
+    $filters = [
+        'upt'        => $this->input->get('upt', TRUE),
+        'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+        'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))),
+        'start_date' => $this->input->get('start_date', TRUE),
+        'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
+    ];
+
+    $rows = $this->Nnc_model->getExportData($filters);
+    if (empty($rows)) die("Data tidak ditemukan.");
+
+    $headers = [
+        'No', 'No. NNC', 'Tgl NNC', 'UPT/Satpel', 'Kepada', 'Pengirim', 'Penerima', 
+        'Asal', 'Tujuan', 'Komoditas', 'HS Code', 'Volume', 'Satuan', 'Nature of Non-Compliance', 'Petugas'
+    ];
+
+    $exportData = [];
+    $no = 0;
+    $lastAju = null;
+
+    $labels = [
+        1 => 'Prohibited goods: ',
+        2 => 'Problem with documentation (specify): ',
+        3 => 'The goods were infected/infested/contaminated with pests (specify): ',
+        4 => 'The goods do not comply with food safety (specify): ',
+        5 => 'The goods do not comply with other SPS (specify): '
+    ];
+
+    foreach ($rows as $r) {
+        $isSame = ($r['no_aju'] === $lastAju);
+        if (!$isSame) { $no++; }
+
+        $messages = [];
+        foreach (range(1, 5) as $i) {
+            if (!empty($r["specify$i"])) {
+                $messages[] = $labels[$i] . $r["specify$i"];
+            }
+        }
+        $nnc_reason = implode(" | ", $messages);
+
+        $exportData[] = [
+            $isSame ? '' : $no,
+            $isSame ? 'Idem' : $r['nomor_penolakan'],
+            $isSame ? 'Idem' : $r['tgl_penolakan'],
+            $isSame ? 'Idem' : ($r['upt'] . ' - ' . $r['nama_satpel']),
+            $isSame ? 'Idem' : $r['kepada'],
+            $isSame ? 'Idem' : $r['nama_pengirim'],
+            $isSame ? 'Idem' : $r['nama_penerima'],
+            $isSame ? 'Idem' : ($r['asal'] . ' - ' . $r['kota_asal']),
+            $isSame ? 'Idem' : ($r['tujuan'] . ' - ' . $r['kota_tujuan']),
+            $r['komoditas'],
+            $r['kode_hs'],
+            $r['volume'],
+            $r['satuan'],
+            $isSame ? 'Idem' : $nnc_reason,
+            $isSame ? 'Idem' : $r['petugas']
+        ];
+
+        $lastAju = $r['no_aju'];
     }
+
+    $title = "LAPORAN NNC";
+    $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+
+    if (ob_get_length()) ob_end_clean();
+    $this->load->library('excel_handler');
+    return $this->excel_handler->download("Laporan_NNC", $headers, $exportData, $reportInfo);
+}
 }

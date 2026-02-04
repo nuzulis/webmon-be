@@ -48,7 +48,8 @@ class M_Ecert extends CI_Model
 
     private function getAuthHeader(): string
     {
-        // sebaiknya pindahkan ke config/ecert.php
-        return 'Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm';
+        $auth = $this->config->item('auth_header', 'prior');
+
+    return (string) $auth;
     }
 }

@@ -5,53 +5,76 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class Transaksi_model extends BaseModelStrict
 {
-    
+        
+
     public function getIds($f, $limit, $offset)
-{
-    $this->db->select('p.id')
-        ->from('ptk p')
-        ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
-        ->where([
-            'p.is_verifikasi' => '1',
-            'p.is_batal'      => '0',
-            'pkom.deleted_at' => '1970-01-01 08:00:00',
-        ]);
+    {
+        $this->db->select('p.id')
+            ->from('ptk p')
+            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
+            ->where([
+                'p.is_verifikasi' => '1',
+                'p.is_batal'      => '0',
+                'pkom.deleted_at' => '1970-01-01 08:00:00',
+            ]);
 
-    // Menggunakan filter tanggal yang dinamis dari controller
-    if (!empty($f['start_date']) && !empty($f['end_date'])) {
-        $this->db->where('p.tgl_dok_permohonan >=', $f['start_date']);
-        $this->db->where('p.tgl_dok_permohonan <=', $f['end_date']);
+        if (empty($f['start_date'])) {
+            $f['start_date'] = date('Y-m-d');
+            $f['end_date'] = date('Y-m-d');
+        }
+        $this->applyDateFilter('p.tgl_dok_permohonan', $f);
+
+        if (!empty($f['upt']) && $f['upt'] !== 'all') {
+            $this->db->where('p.upt_id', $f['upt']);
+        }
+
+        if (!empty($f['karantina'])) {
+            $this->db->where('p.jenis_karantina', $f['karantina']);
+        }
+
+        $this->db->group_by('p.id')
+                ->order_by('p.tgl_dok_permohonan', 'DESC')
+                ->limit($limit, $offset);
+
+        $res = $this->db->get()->result_array();
+        return array_column($res, 'id');
     }
 
-    if (!empty($f['upt']) && $f['upt'] !== 'all') {
-        $this->db->where('p.upt_id', $f['upt']);
+    public function countAll($f)
+    {
+        if (empty($f['start_date'])) {
+            $f['start_date'] = date('Y-m-d');
+            $f['end_date'] = date('Y-m-d');
+        }
+
+        $this->db->from('ptk p')
+            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
+            ->where([
+                'p.is_verifikasi' => '1',
+                'p.is_batal'      => '0',
+                'pkom.deleted_at' => '1970-01-01 08:00:00',
+            ]);
+
+        $this->applyDateFilter('p.tgl_dok_permohonan', $f);
+
+        if (!empty($f['upt']) && $f['upt'] !== 'all') {
+            $this->db->where('p.upt_id', $f['upt']);
+        }
+        
+        return $this->db->count_all_results();
     }
-
-    if (!empty($f['karantina'])) {
-        $this->db->where('p.jenis_karantina', $f['karantina']);
-    }
-
-    $this->db->group_by('p.id')
-             ->order_by('p.tgl_dok_permohonan', 'DESC')
-             ->limit($limit, $offset);
-
-    $res = $this->db->get()->result_array();
-    return array_column($res, 'id');
-}
 
 
 public function getByIds($ids, $karantina = 'T')
 {
     if (empty($ids)) return [];
 
-    // Penyesuaian Mapping dengan kode H | I | T
     $tableMap = [
         'H' => ['kom' => 'komoditas_hewan', 'klas' => 'klasifikasi_hewan'],
         'I' => ['kom' => 'komoditas_ikan', 'klas' => 'klasifikasi_ikan'],
         'T' => ['kom' => 'komoditas_tumbuhan', 'klas' => 'klasifikasi_tumbuhan']
     ];
-    
-    // Default ke T jika tidak cocok
+
     $target = $tableMap[$karantina] ?? $tableMap['T'];
 
     $this->db->select("
@@ -85,8 +108,6 @@ public function getByIds($ids, $karantina = 'T')
         ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left')
         ->join($target['kom'] . " kom", 'pkom.komoditas_id = kom.id')
         ->join($target['klas'] . " klas", 'pkom.klasifikasi_id = klas.id');
-
-    // Manual Escaping untuk handling ID massal
     $quoted_ids = array_map(fn($id) => $this->db->escape($id), $ids);
     $this->db->where("p.id IN (" . implode(',', $quoted_ids) . ")", NULL, FALSE);
 
@@ -94,25 +115,5 @@ public function getByIds($ids, $karantina = 'T')
     return $this->db->get()->result_array();
 }
 
-    public function countAll($f)
-    {
-        $hari_ini = date('Y-m-d') . ' 00:00:00';
-        $esok_hari = date('Y-m-d', strtotime('+1 day')) . ' 00:00:00';
-
-        $this->db->from('ptk p')
-            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
-            ->where([
-                'p.is_verifikasi' => '1',
-                'p.is_batal'      => '0',
-                'pkom.deleted_at' => '1970-01-01 08:00:00',
-            ])
-            ->where('p.tgl_dok_permohonan >=', $hari_ini)
-            ->where('p.tgl_dok_permohonan <', $esok_hari);
-
-        if (!empty($f['upt']) && $f['upt'] !== 'all') {
-            $this->db->where('p.upt_id', $f['upt']);
-        }
-        
-        return $this->db->count_all_results();
-    }
+   
 }

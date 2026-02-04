@@ -4,7 +4,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * @property M_Ptk_Core      $ptk
  * @property M_Tindakan      $tindakan
- * @property M_Pengguna_Jasa $pj
  * @property M_SSM_Legacy    $ssmLegacy
  */
 class Detail extends MY_Controller
@@ -15,35 +14,49 @@ class Detail extends MY_Controller
 
         $this->load->model('M_Ptk_Core', 'ptk');
         $this->load->model('M_Tindakan', 'tindakan');
-        $this->load->model('M_Pengguna_Jasa', 'pj');
         $this->load->model('M_SSM_Legacy', 'ssmLegacy');
     }
 
-    /* =====================================================
-     * DETAIL VIEW
-     * ===================================================== */
     public function view()
-    {
+    {   
+        $rawInput = file_get_contents("php://input");
+    if (!empty($rawInput)) {
+        $json = json_decode($rawInput, true);
+        if ($json) {
+            $_POST = $json;
+        } else {
+            parse_str($rawInput, $postData);
+            $_POST = $postData;
+        }
+    }
+
         $id    = trim($this->input->post('id'));
         $modul = trim($this->input->post('modul'));
 
         if (!$id) {
             return $this->json_error('ID tidak boleh kosong');
         }
-
-        /* =====================================================
-         * BASE PTK
-         * ===================================================== */
         $base = $this->ptk->get_ptk_detail('ID', $id);
         if (!$base) {
             return $this->json_error('PTK tidak ditemukan');
         }
+        $via = 'LAINNYA';
+        $lastChar = substr($base['no_aju'], -1);
 
+        if ($lastChar == 'S') {
+            $via = "SSM QC";
+        } else if ($lastChar == 'P') {
+            $via = "PTK ONLINE";
+        } else if ($lastChar == 'D') {
+            $via = "DOMAS ONLINE";
+        } else if ($lastChar == 'M') {
+            $via = "MANUAL";
+        } else if ($lastChar == 'T') {
+            $via = "SERAH TERIMA";
+        }
+
+        $base['via'] = $via;
         $jenisKarantina = $base['jenis_karantina'];
-
-        /* =====================================================
-         * RESPONSE DASAR
-         * ===================================================== */
         $response = [
             'success' => true,
             'data' => [
@@ -52,18 +65,8 @@ class Detail extends MY_Controller
                 'dokumen'   => $this->ptk->get_dokumen($id),
             ]
         ];
-
-        /* =====================================================
-         * DETEKSI SERAH TERIMA
-         * ===================================================== */
         $deteksi = $this->tindakan->detect_serah_terima($id);
-
-        /* =====================================================
-         * MODE NORMAL
-         * ===================================================== */
         if ($deteksi['mode'] === 'NORMAL') {
-
-            /* ===== TIMELINE INTERNAL ===== */
             $timeline = $this->tindakan->get_timeline($id, $jenisKarantina);
 
             usort($timeline, static fn($a, $b) =>
@@ -71,12 +74,7 @@ class Detail extends MY_Controller
             );
 
             $response['data']['timeline'] = $timeline;
-
-            /* ===== RIWAYAT DOKUMEN (UNTUK SSM LEGACY) ===== */
             $history = $this->tindakan->get_history_flat($id);
-
-            /* ===== SSM (LEGACY MODE) ===== */
-            // Ambil jenis_permohonan dari history jika tidak ada di base
             $jenisPermohonan = $base['jenis_permohonan'] 
                 ?? ($history[0]['jenis_permohonan'] ?? null);
 
@@ -84,8 +82,6 @@ class Detail extends MY_Controller
                 'tssm_id'          => $base['tssm_id'] ?? null,
                 'jenis_permohonan' => $jenisPermohonan
             ];
-
-            // Debug logging
             log_message('debug', 'SSM Params: ' . json_encode($ssmParams));
             log_message('debug', 'History Data: ' . json_encode($history));
 
@@ -93,16 +89,9 @@ class Detail extends MY_Controller
                 $this->ssmLegacy->build_respon_ssm($ssmParams, $history);
         }
 
-        /* =====================================================
-         * MODE SERAH TERIMA
-         * ===================================================== */
         else {
 
             $timeline = [];
-
-            /* ===============================
-             * PTK ASAL
-             * =============================== */
             $asalCtx = $this->tindakan->get_ptk_context($deteksi['ptk_asal_id']);
 
             if ($asalCtx) {
@@ -122,8 +111,6 @@ class Detail extends MY_Controller
                     'status'          => 'SELESAI_SERAH',
                     'events'          => $eventsAsal
                 ];
-
-                /* ===== SSM HANYA MILIK PTK ASAL ===== */
                 $historyAsal = $this->tindakan->get_history_flat($asalCtx['id']);
 
                 $ssmParamsAsal = [
@@ -134,10 +121,6 @@ class Detail extends MY_Controller
                 $response['data']['respon_ssm'] =
                     $this->ssmLegacy->build_respon_ssm($ssmParamsAsal, $historyAsal);
             }
-
-            /* ===============================
-             * PTK TUJUAN
-             * =============================== */
             if (!empty($deteksi['ptk_tujuan_id'])) {
 
                 $tujuanCtx = $this->tindakan->get_ptk_context($deteksi['ptk_tujuan_id']);
@@ -165,25 +148,10 @@ class Detail extends MY_Controller
             $response['data']['timeline'] = $timeline;
         }
 
-        /* =====================================================
-         * PENGGUNA JASA
-         * ===================================================== */
-        if ($modul === 'pj' && !empty($base['pelanggan_id'])) {
-            $response['data']['pengguna_jasa'] =
-                $this->pj->get_profil($base['pelanggan_id']);
-        }
-
-        /* =====================================================
-         * OUTPUT
-         * ===================================================== */
         return $this->output
             ->set_content_type('application/json')
             ->set_output(json_encode($response));
     }
-
-    /* =====================================================
-     * JSON ERROR
-     * ===================================================== */
     private function json_error(string $message, int $code = 400)
     {
         return $this->output

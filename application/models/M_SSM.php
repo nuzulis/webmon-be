@@ -26,7 +26,7 @@ class M_SSM extends CI_Model
 
         $events = [];
 
-        /* ================= IZIN ================= */
+        
         foreach ($data['izin'] as $i) {
             $events[] = [
                 'kode'        => 'SSM',
@@ -41,7 +41,7 @@ class M_SSM extends CI_Model
             ];
         }
 
-        /* ================= QC ================= */
+       
         foreach ($data['qc'] as $q) {
             $events[] = [
                 'kode'        => 'SSM',

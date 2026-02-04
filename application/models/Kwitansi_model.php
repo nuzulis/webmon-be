@@ -5,80 +5,86 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class Kwitansi_model extends BaseModelStrict
 {
-    // Gunakan konstan atau ambil dari config untuk URL API
     protected $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/laporan/webmon';
+    private $_cache_data = null;
 
-    public function fetch($f)
-    {
-        $karMap = [
-            'kh' => 'H',
-            'ki' => 'I',
-            'kt' => 'T',
-        ];
+    private function getAllDataFromSimponi($f)
+{
+    if ($this->_cache_data !== null) return $this->_cache_data;
 
-        $karantina = $karMap[strtolower($f['karantina'] ?? '')] ?? 'all';
-
-        $permMap = ['ex', 'im', 'dk', 'dm'];
-        $permohonan = in_array(strtolower($f['permohonan'] ?? ''), $permMap, true)
-            ? strtolower($f['permohonan'])
-            : 'all';
-
-        // Pastikan UPT ID dikonversi ke format yang dikenali Simponi (biasanya string atau 'all')
-        $uptId = $f['upt'] ?? 'all';
-
-        $payload = http_build_query([
-            'dFrom'           => $f['start_date'],
-            'dTo'             => $f['end_date'],
-            'jenisKarantina'  => $karantina,
-            'jenisPermohonan' => $permohonan,
-            'berdasarkan'     => $f['berdasarkan'] ?? 'tanggal_setor',
-            'upt'             => $uptId,
-            'kodeSatpel'      => 'all',
-        ]);
-
-        $response = $this->curlPost($this->endpoint, $payload);
-
-        if (!$response || empty($response['status']) || empty($response['data'])) {
-            return [];
-        }
-
-        return $this->normalize($response['data']);
+    $karInput = strtolower($f['karantina'] ?? '');
+    if (empty($karInput) || $karInput === 'all') {
+        $karantinaField = 'all';
+    } else {
+        $karantinaField = match(substr($karInput, -1)) {
+            'h' => 'H',
+            'i' => 'I',
+            't' => 'T',
+            default => 'all'
+        };
     }
-    public function getIds($f, $limit, $offset)
-    {
+
+    $permInput = strtolower($f['permohonan'] ?? '');
+    $permohonanField = in_array($permInput, ['ex', 'im', 'dk', 'dm']) ? $permInput : 'all';
+
+    $uptField = (!empty($f['upt']) && $f['upt'] !== 'all') ? $f['upt'] : 'all';
+    $berdasarkan = strtoupper($f['berdasarkan'] ?? 'S');
+    $berdasarkan = substr($berdasarkan, 0, 1) ?: 'S';
+
+    $payload = [
+        'dFrom'           => $f['start_date'] ?? '',
+        'dTo'             => $f['end_date'] ?? '',
+        'jenisKarantina'  => $karantinaField,
+        'jenisPermohonan' => $permohonanField,
+        'berdasarkan'     => $berdasarkan,
+        'upt'             => $uptField,
+        'kodeSatpel'      => 'all',
+    ];
+
+    log_message('error', 'PAYLOAD TO SIMPONI: ' . http_build_query($payload));
+
+    $response = $this->curlPost($this->endpoint, http_build_query($payload));
+
+    if (!$response || empty($response['status']) || !isset($response['data'])) {
+        $this->_cache_data = [];
         return [];
     }
 
-    public function getByIds($ids)
-    {
-        return [];
+    $this->_cache_data = $this->normalize($response['data']);
+    return $this->_cache_data;
+}
+    public function countAll($f) {
+        return count($this->getAllDataFromSimponi($f));
     }
 
-    public function countAll($f)
-    {
-        return 0;
+    public function fetch($f) {
+        $allData = $this->getAllDataFromSimponi($f);
+        $limit = isset($f['per_page']) ? (int)$f['per_page'] : 10;
+        $page = isset($f['page']) ? (int)$f['page'] : 1;
+        $offset = ($page - 1) * $limit;
+        return array_slice($allData, $offset, $limit);
     }
-    private function normalize($rows)
-    {
+
+    public function getAll($f) {
+        return $this->getAllDataFromSimponi($f);
+    }
+
+    public function getIds($f, $limit, $offset) { return []; }
+    public function getByIds($ids) { return []; }
+
+    private function normalize($rows) {
         if (!is_array($rows)) return [];
-
+        $out = [];
         $seen = [];
-        $out  = [];
-
-        // Sorting berdasarkan nomor kwitansi agar urut seperti di native
-        usort($rows, function($a, $b) {
-            return strcmp($a['nomor'] ?? '', $b['nomor'] ?? '');
-        });
-
         foreach ($rows as $r) {
-            $uniqueKey = $r['nomor'] ?? null; // Native menggunakan field 'nomor' (No Kwitansi) untuk dedup
+            $uniqueKey = $r['nomor'] ?? null;
             if (!$uniqueKey || in_array($uniqueKey, $seen, true)) continue;
             $seen[] = $uniqueKey;
 
             $out[] = [
+                'id'               => $r['id'] ?? '',
                 'nama_upt'         => $r['nama_upt'] ?? '',
-                'nama_satpel'      => $r['nama_satpel'] ?? '',
-                'nama_pospel'      => $r['nama_pospel'] ?? '',
+                'nama_satpel'      => trim(($r['nama_satpel'] ?? '') . ' ' . ($r['nama_pospel'] ?? '')),
                 'jenis_karantina'  => $this->mapKarantina($r['jenis_karantina'] ?? ''),
                 'nomor'            => $r['nomor'] ?? '',
                 'tanggal'          => $r['tanggal'] ?? '',
@@ -97,50 +103,28 @@ class Kwitansi_model extends BaseModelStrict
         return $out;
     }
 
-    private function mapKarantina($v)
-    {
-        return match (strtoupper($v)) {
-            'H' => 'Hewan',
-            'I' => 'Ikan',
-            'T' => 'Tumbuhan',
-            default => '-',
-        };
+    private function mapKarantina($v) {
+        return match (strtoupper($v)) { 'H' => 'Hewan', 'I' => 'Ikan', 'T' => 'Tumbuhan', default => '-' };
     }
 
-    private function mapPermohonan($v)
-    {
-        return match (strtoupper($v)) {
-            'EX' => 'Ekspor',
-            'IM' => 'Impor',
-            'DK' => 'Domestik Keluar',
-            'DM' => 'Domestik Masuk',
-            default => '-',
-        };
+    private function mapPermohonan($v) {
+        return match (strtoupper($v)) { 'EX' => 'Ekspor', 'IM' => 'Impor', 'DK' => 'Domestik Keluar', 'DM' => 'Domestik Masuk', default => '-' };
     }
 
-    private function curlPost($url, $payload)
-    {
+    private function curlPost($url, $payload) {
         $ch = curl_init($url);
-
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => $payload,
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_TIMEOUT        => 120,
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/x-www-form-urlencoded',
                 'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
             ],
         ]);
-
         $res = curl_exec($ch);
-        
-        if (curl_errno($ch)) {
-            // Opsional: Log error curl_error($ch);
-            return null;
-        }
-
         curl_close($ch);
         return json_decode($res, true);
     }

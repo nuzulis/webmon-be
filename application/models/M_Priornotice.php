@@ -38,7 +38,10 @@ class M_Priornotice extends CI_Model
 
     private function getAuthHeader(): string
     {
-        // TODO: pindahkan ke config/prior.php jika sudah rapi
-        return 'Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm';
+       $this->config->load('prior', TRUE);
+    
+    $auth = $this->config->item('auth_header', 'prior');
+
+    return (string) $auth;
     }
 }

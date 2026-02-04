@@ -6,7 +6,7 @@ class BaseModelStrict extends CI_Model
    public function getList(array $filter, int $limit, int $offset): array
     {
         $ids = $this->getIds($filter, $limit, $offset);
-        return $this->getByIds($ids); // Menggunakan nama standar lama
+        return $this->getByIds($ids);
     }
 
     public function getIds(array $filter, int $limit, int $offset): array
@@ -23,9 +23,6 @@ class BaseModelStrict extends CI_Model
         );
     }
 
-    /**
-     * Hitung total data untuk meta pagination
-     */
     public function countAll(array $filter): int
     {
         $this->countAllQuery($filter);
@@ -35,7 +32,7 @@ class BaseModelStrict extends CI_Model
     
     public function getByIds(array $ids): array 
     { 
-        return []; // Akan di-override oleh model anak
+        return [];
     }
 
     protected function getIdsQuery(array $filter): void {}
@@ -54,8 +51,6 @@ class BaseModelStrict extends CI_Model
         } elseif (!empty($filter['upt_id'])) {
             $this->db->where('p.kode_satpel', (string) $filter['upt_id']);
         }
-
-    // 2. Scope Karantina (Role Deputi)
     if (isset($user['detil']) && is_array($user['detil'])) {
         foreach ($user['detil'] as $r) {
             $role = $r['role_name'] ?? '';

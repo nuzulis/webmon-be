@@ -17,55 +17,50 @@ class CariKuitansi extends MY_Controller
     }
 
     public function index()
-    {
-        /* ================= JWT ================= */
-        $auth = $this->input->get_request_header('Authorization', true);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
-        }
+{
+   header('Access-Control-Allow-Origin: *');
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 
-        try {
-            
-        } catch (Exception $e) {
-            return $this->json(401, ['success' => false, 'message' => 'Token tidak valid']);
-        }
-
-        /* ================= INPUT ================= */
-        $filter    = strtoupper($this->input->get('filter', true));
-        $pencarian = trim($this->input->get('pencarian', true));
-
-        if (!in_array($filter, ['K', 'B'], true) || $pencarian === '') {
-            return $this->json(400, [
-                'success' => false,
-                'message' => 'Parameter pencarian tidak lengkap'
-            ]);
-        }
-
-        try {
-            $data = $this->CariKuitansi_model->cari($filter, $pencarian);
-        } catch (Exception $e) {
-            return $this->json(500, [
-                'success' => false,
-                'message' => $e->getMessage()
-            ]);
-        }
-
-        if (empty($data)) {
-            return $this->json(200, [
-                'success' => true,
-                'rows'    => [],
-                'detail'  => null
-            ]);
-        }
-
-        return $this->json(200, [
-            'success' => true,
-            'rows'    => $this->mapRows($data['list_kuitansi']),
-            'detail'  => $this->mapDetail($data),
-        ]);
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        exit;
     }
 
-    /* ================= MAPPER ================= */
+    $this->output->set_content_type('application/json');
+    $filter    = strtoupper($this->input->get('filter', true));
+    $pencarian = trim($this->input->get('pencarian', true));
+
+    if (!$filter || !$pencarian) {
+        return $this->output->set_output(json_encode([
+            'success' => false,
+            'error' => 'Parameter tidak lengkap'
+        ]));
+    }
+
+    try {
+        $data = $this->CariKuitansi_model->cari($filter, $pencarian);
+        
+        if (empty($data) || !isset($data['list_kuitansi'])) {
+             return $this->output->set_output(json_encode([
+                'success' => true,
+                'rows' => [],
+                'detail' => null
+            ]));
+        }
+
+        return $this->output->set_output(json_encode([
+            'success' => true,
+            'rows' => $this->mapRows($data['list_kuitansi']),
+            'detail' => $this->mapDetail($data)
+        ]));
+
+    } catch (Exception $e) {
+        return $this->output->set_output(json_encode([
+            'success' => false, 
+            'error' => $e->getMessage()
+        ]));
+    }
+}
 
     private function mapRows(array $rows): array
     {
@@ -120,11 +115,5 @@ class CariKuitansi extends MY_Controller
         ];
     }
 
-    private function json(int $status, array $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
+   
 }

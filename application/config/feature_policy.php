@@ -3,9 +3,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 $config['feature_policy'] = [
 
-    // =====================
-    // SUPER ADMIN
-    // =====================
     'SA' => [
         '*' => [
            'allow' => [
@@ -24,9 +21,6 @@ $config['feature_policy'] = [
         ]
     ],
 
-    // =====================
-    // ADMIN NASIONAL
-    // =====================
     'ADM-KP' => [
         '*' => [
             'allow' => [
@@ -42,9 +36,6 @@ $config['feature_policy'] = [
         ]
     ],
 
-    // =====================
-    // ADMIN UPT
-    // =====================
     'ADM-UPT' => [
         'APP001' => [
             'allow' => [
@@ -61,9 +52,6 @@ $config['feature_policy'] = [
         ]
     ],
 
-    // =====================
-    // PETUGAS TEKNIS
-    // =====================
     'AP' => [
         'APP001' => [
             'allow' => [
@@ -94,7 +82,6 @@ $config['feature_policy'] = [
     // GKM (KHUSUS)
     // =====================
     'GKM' => [
-        // GKM di APP_ID (Operasional)
         'APP001' => [
             'allow' => [
                 'dashboard.*',
@@ -106,7 +93,6 @@ $config['feature_policy'] = [
             'scope' => 'upt'
         ],
 
-        // GKM di APP_ID2 (Pengawasan / Keuangan)
         'APP008' => [
             'allow' => [
                 'dashboard.*',
@@ -118,12 +104,10 @@ $config['feature_policy'] = [
         ]
     ],
 
-    // =====================
-    // PENGAWAS NASIONAL
-    // =====================
     'ITJEN' => [
         'APP008' => [
             'allow' => [
+                'dashboard.*',
                 'tindakan.*',
                 'pnbp.*'
             ],
@@ -134,6 +118,7 @@ $config['feature_policy'] = [
     'BPK' => [
         'APP008' => [
             'allow' => [
+                
                 'tindakan.pelepasan',
                 'pnbp.*'
             ],
@@ -141,15 +126,23 @@ $config['feature_policy'] = [
         ]
     ],
 
-    // =====================
-    // BUK
-    // =====================
     'KEU' => [
         'APP008' => [
             'allow' => [
+                'dashboard.*',
                 'pnbp.*'
             ],
             'scope' => 'national'
+        ]
+    ],
+
+    'LAB' => [
+        '*' => [
+            'allow'     => [
+                'dashboard.*',
+                'tindakan.*',
+            ],
+            'scope'     => 'national',
         ]
     ],
     // =====================
@@ -193,5 +186,7 @@ $config['feature_policy'] = [
             'karantina' => 'kt'
         ]
     ],
+
+    
 
 ];

@@ -32,29 +32,37 @@ class Kwitansi extends MY_Controller
             return $this->json(401, 'Token tidak valid');
         }
 
-        /* ================= FILTER ================= */
         $filters = [
-            'karantina'   => strtolower($this->input->get('karantina')),
-            'permohonan'  => strtolower($this->input->get('permohonan')),
-            'upt'         => $this->input->get('upt'),
+            'karantina'   => $this->input->get('karantina'),
+            'permohonan'  => $this->input->get('permohonan'),
+            'upt'         => $this->input->get('upt') ?: 'all', 
             'start_date'  => $this->input->get('start_date'),
             'end_date'    => $this->input->get('end_date'),
             'berdasarkan' => $this->input->get('berdasarkan'),
+            'page'        => $this->input->get('page') ?: 1,
+            'per_page'    => $this->input->get('per_page') ?: 10,
         ];
+    $data = $this->Kwitansi_model->fetch($filters);
 
-        $data = $this->Kwitansi_model->fetch($filters);
+    $totalCount = (int) $this->Kwitansi_model->countAll($filters);
+    $perPage    = (int) ($filters['per_page'] ?? 10);
+    $currentPage = (int) ($filters['page'] ?? 1);
 
-        return $this->json(200, [
-            'success' => true,
-            'data'    => $data,
-            'meta'    => [
-                'total' => count($data),
-            ]
-        ]);
+    return $this->json([
+        'success' => true,
+        'data'    => $data,
+        'meta'    => [
+            'total'      => $totalCount,
+            'page'       => $currentPage,
+            'per_page'   => $perPage,
+            'total_page' => $totalCount > 0 ? ceil($totalCount / $perPage) : 0
+        ]
+    ], 200);
     }
+
     public function export_excel()
     {
-        /* 1. Ambil Filter */
+       
         $filters = [
             'karantina'   => $this->input->get('karantina'),
             'permohonan'  => $this->input->get('permohonan'),
@@ -65,9 +73,12 @@ class Kwitansi extends MY_Controller
         ];
 
        
-        $data = $this->Kwitansi_model->fetch($filters);
+        $data = $this->Kwitansi_model->getAll($filters);
 
-// DEBUG:
+    if (empty($data)) {
+        die("Data tidak ditemukan untuk periode ini.");
+    }
+
 if (empty($data)) {
     return $this->jsonRes(200, [
         'debug_info' => 'Data kosong',
@@ -79,15 +90,13 @@ if (empty($data)) {
             return $this->jsonRes(404, ['success' => false, 'message' => "Data Kwitansi tidak ditemukan"]);
     }
 
-        /* 3. Header Excel */
         $headers = [
-            'Nomor', 'UPT', 'Satpel', 'Pos Pelayanan', 'Karantina', 
+            'Nomor', 'UPT', 'Satpel', 'Karantina', 
             'Nomor Kwitansi', 'Tanggal Kwitansi', 'Jenis Permohonan', 
             'Nama Wajib Bayar', 'Tipe Bayar', 'Total PNBP', 'Kode Billing', 
             'NTPN', 'NTB', 'Tanggal Billing', 'Tanggal Setor', 'Bank'
         ];
 
-        /* 4. Mapping Data */
         $exportData = [];
         $no = 1;
         foreach ($data as $item) {
@@ -95,7 +104,6 @@ if (empty($data)) {
                 $no++,
                 $item['nama_upt'],
                 $item['nama_satpel'],
-                $item['nama_pospel'],
                 $item['jenis_karantina'],
                 $item['nomor'],
                 $item['tanggal'],
@@ -103,7 +111,7 @@ if (empty($data)) {
                 $item['nama_wajib_bayar'],
                 $item['tipe_bayar'],
                 $item['total_pnbp'],
-                "'" . $item['kode_bill'], // Menambahkan petik agar tidak jadi scientific number di excel
+                "'" . $item['kode_bill'],
                 $item['ntpn'],
                 $item['ntb'],
                 $item['date_bill'],
@@ -128,14 +136,5 @@ if (empty($data)) {
         return $this->excel_handler->download("Kwitansi_PNBP", $headers, $exportData, $reportInfo);
     }
 
-    private function json(int $status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode(
-                is_array($data) ? $data : ['success' => false, 'message' => $data],
-                JSON_UNESCAPED_UNICODE
-            ));
-    }
+   
 }

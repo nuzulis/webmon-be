@@ -7,86 +7,69 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * @property Revisi_model    $Revisi_model
  * @property Excel_handler    $excel_handler
  */
+
 class Revisi extends MY_Controller
 {
     public function __construct()
     {
         parent::__construct();
         $this->load->model('Revisi_model');
-        $this->load->helper(['jwt']);
         $this->load->library('excel_handler');
     }
 
     public function index()
     {
-        /* ===== JWT ===== */
-        $auth = $this->input->get_request_header('Authorization', TRUE);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
-        }
+        $page   = (int) $this->input->get('page', true) ?: 1;
+        $limit  = (int) $this->input->get('per_page', true) ?: 10;
+        $offset = ($page - 1) * $limit;
 
-        
-
-        /* ===== FILTER ===== */
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
+        $filter = [
+            'upt'        => $this->input->get('upt', true),
+            'karantina'  => strtoupper($this->input->get('karantina', true)),
+            'start_date' => $this->input->get('start_date', true),
+            'end_date'   => $this->input->get('end_date', true),
+            'search'     => $this->input->get('search', true),
         ];
 
-        if (!in_array($filters['karantina'], ['H','I','T'], true)) {
-            return $this->json(400, [
-                'success' => false,
-                'message' => 'Jenis karantina tidak valid'
-            ]);
-        }
+        $ids   = $this->Revisi_model->getIds($filter, $limit, $offset);
+        $data  = $ids ? $this->Revisi_model->getByIds($ids, $filter['karantina']) : [];
+        $total = $this->Revisi_model->countAll($filter);
 
-        /* ===== PAGINATION ===== */
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int)$this->input->get('per_page');
-        $perPage = $perPage > 0 ? min($perPage, 25) : 20;
-        $offset  = ($page - 1) * $perPage;
-
-        /* ===== STEP 1 ===== */
-        $ids = $this->Revisi_model->getIds($filters, $perPage, $offset);
-
-        /* ===== STEP 2 ===== */
-        $rows = $this->Revisi_model->getByIds($ids, $filters['karantina']);
-
-        /* ===== TOTAL ===== */
-        $total = $this->Revisi_model->countAll($filters);
-
-        return $this->json(200, [
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ]);
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'data' => $data,
+                'meta' => [
+                    'page'       => $page,
+                    'per_page'   => $limit,
+                    'total'      => $total,
+                    'total_page' => ceil($total / $limit),
+                ],
+            ]));
     }
+
 
     public function export_excel()
 {
-    /* 1. Ambil Filter & Data */
+    error_reporting(0);
     $filters = [
         'upt'        => $this->input->get('upt', TRUE),
         'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-        'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
         'start_date' => $this->input->get('start_date', TRUE),
         'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
     ];
 
     if (!in_array($filters['karantina'], ['H','I','T'], true)) {
-        return $this->json(400, ['success' => false, 'message' => 'Jenis karantina wajib diisi']);
+        return $this->json(400);
     }
 
-    $ids = $this->Revisi_model->getIds($filters, 5000, 0);
-    $rows = $ids ? $this->Revisi_model->getByIds($ids, $filters['karantina']) : [];
+    $total = $this->Revisi_model->countAll($filters);
+    $ids   = $this->Revisi_model->getIds($filters, $total, 0);
+
+    $rows = $ids
+        ? $this->Revisi_model->getByIds($ids, $filters['karantina'])
+        : [];
 
     /* 2. Setup Header Excel */
     $headers = [
@@ -95,28 +78,24 @@ class Revisi extends MY_Controller
         'Alasan Hapus/Revisi', 'Waktu Hapus', 'Penandatangan', 'Petugas Hapus'
     ];
 
-    /* 3. Mapping Data dengan Logika IDEM */
     $exportData = [];
     $no = 1;
-    $lastAju = null; // Variabel pembantu untuk mengecek baris sebelumnya
+    $lastAju = null;
 
     foreach ($rows as $r) {
-        // Cek apakah No Aju sama dengan baris sebelumnya
         $isIdem = ($r['no_aju'] === $lastAju);
         
         $alasanClean = str_replace(["\r", "\n", "\t"], " ", $r['alasan_delete']);
 
         $exportData[] = [
-            $isIdem ? '' : $no++,                         // No urut hanya muncul jika bukan Idem
-            $isIdem ? 'Idem' : $r['sumber'],             // Sumber
-            $isIdem ? 'Idem' : $r['no_aju'],             // No Aju
-            $isIdem ? 'Idem' : $r['no_dok_permohonan'],  // No Dok Permohonan
-            $isIdem ? '' : $r['tgl_dok_permohonan'],      // Tgl Dok Permohonan
-            $isIdem ? '' : $r['upt'],                    // UPT
-            $isIdem ? '' : $r['nama_satpel'],            // Satpel
+            $isIdem ? '' : $no++,
+            $isIdem ? 'Idem' : $r['sumber'] ?? '-',
+            $isIdem ? 'Idem' : $r['no_aju'] ?? '-',
+            $isIdem ? 'Idem' : $r['no_dok_permohonan'] ?? '-',
+            $isIdem ? '' : $r['tgl_dok_permohonan'] ?? '-',
+            $isIdem ? '' : $r['upt'] ?? '-',
+            $isIdem ? '' : $r['nama_satpel'] ?? '-',
             
-            // Kolom detail dokumen di bawah ini biasanya tetap muncul karena 
-            // 1 No Aju bisa punya beberapa dokumen yang direvisi
             $r['no_dok'],
             $r['nomor_seri'],
             $r['tgl_dok'],
@@ -125,8 +104,6 @@ class Revisi extends MY_Controller
             $r['penandatangan'],
             $r['yang_menghapus']
         ];
-
-        // Update lastAju untuk pengecekan baris berikutnya
         $lastAju = $r['no_aju'];
     }
 
@@ -137,11 +114,5 @@ class Revisi extends MY_Controller
     return $this->excel_handler->download("Laporan_Revisi_Dokumen", $headers, $exportData, $reportInfo);
 }
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
+    
 }

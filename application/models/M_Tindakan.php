@@ -10,9 +10,6 @@ class M_Tindakan extends CI_Model
         $this->load->model('M_Ptk_Core', 'ptk');
     }
 
-    /* =====================================================
-     * TIMELINE UTAMA
-     * ===================================================== */
     public function get_timeline($ptk_id, $kar)
     {
         $events = [];
@@ -22,23 +19,18 @@ class M_Tindakan extends CI_Model
         $events = array_merge($events, $this->ev_fisik($ptk_id));
         $events = array_merge($events, $this->ev_kontainer($ptk_id));
         $events = array_merge($events, $this->ev_lab($ptk_id));
-
         $events = array_merge($events, $this->ev_masuk_instalasi($ptk_id));
         $events = array_merge($events, $this->ev_sp2mp($ptk_id));
         $events = array_merge($events, $this->ev_pengasingan($ptk_id));
         $events = array_merge($events, $this->ev_perlakuan($ptk_id));
-
         $events = array_merge($events, $this->ev_tangkapan($ptk_id));
         $events = array_merge($events, $this->ev_penahanan($ptk_id));
         $events = array_merge($events, $this->ev_penolakan($ptk_id));
         $events = array_merge($events, $this->ev_pemusnahan($ptk_id));
-
         $events = array_merge($events, $this->ev_serah($ptk_id));
         $events = array_merge($events, $this->ev_terima($ptk_id));
-
         $events = array_merge($events, $this->ev_pelepasan($ptk_id, $kar));
         $events = array_merge($events, $this->ev_kuitansi($ptk_id));
-
         $events = array_merge($events, $this->ev_status_ptk($ptk_id));
 
         usort($events, fn($a,$b) =>
@@ -47,52 +39,55 @@ class M_Tindakan extends CI_Model
 
         return $events;
     }
-
-    /* =====================================================
-     * DETEKSI SERAH TERIMA
-     * ===================================================== */
     public function detect_serah_terima(string $ptkId): array
-    {
-        $asal = $this->db
-            ->select('id, ptk_id_penerima')
-            ->from('ba_penyerahan_mp')
-            ->where('ptk_id', $ptkId)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get()
-            ->row_array();
+{
+    $asal = $this->db
+        ->select('ba.id, ba.ptk_id, ba.ptk_id_penerima, pa.nama as nama_petugas_asal')
+        ->from('ba_penyerahan_mp ba')
+        ->join('master_pegawai pa', 'pa.id = ba.user_asal_id', 'left')
+        ->where('ba.ptk_id', $ptkId)
+        ->group_start()
+            ->where('ba.deleted_at IS NULL', null, false)
+            ->or_where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_end()
+        ->get()
+        ->row_array();
 
-        if ($asal) {
-            return [
-                'mode' => 'SERAH',
-                'role' => 'ASAL',
-                'ptk_asal_id' => $ptkId,
-                'ptk_tujuan_id' => $asal['ptk_id_penerima']
-            ];
-        }
-
-        $tujuan = $this->db
-            ->select('id, ptk_id')
-            ->from('ba_penyerahan_mp')
-            ->where('ptk_id_penerima', $ptkId)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get()
-            ->row_array();
-
-        if ($tujuan) {
-            return [
-                'mode' => 'SERAH',
-                'role' => 'TUJUAN',
-                'ptk_asal_id' => $tujuan['ptk_id'],
-                'ptk_tujuan_id' => $ptkId
-            ];
-        }
-
-        return ['mode' => 'NORMAL'];
+    if ($asal && !empty($asal['ptk_id_penerima'])) {
+        return [
+            'mode' => 'SERAH',
+            'role' => 'ASAL',
+            'ptk_asal_id' => $ptkId,
+            'ptk_tujuan_id' => $asal['ptk_id_penerima'],
+            'petugas_nama' => $asal['nama_petugas_asal']
+        ];
     }
 
-    /* =====================================================
-     * GET PTK CONTEXT
-     * ===================================================== */
+    $tujuan = $this->db
+        ->select('ba.id, ba.ptk_id, ba.ptk_id_penerima, pt.nama as nama_petugas_tujuan')
+        ->from('ba_penyerahan_mp ba')
+        ->join('master_pegawai pt', 'pt.id = ba.user_tujuan_id', 'left')
+        ->where('ba.ptk_id_penerima', $ptkId)
+        ->group_start()
+            ->where('ba.deleted_at IS NULL', null, false)
+            ->or_where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_end()
+        ->get()
+        ->row_array();
+
+    if ($tujuan) {
+        return [
+            'mode' => 'SERAH',
+            'role' => 'TUJUAN',
+            'ptk_asal_id' => $tujuan['ptk_id'],
+            'ptk_tujuan_id' => $ptkId,
+            'petugas_nama' => $tujuan['nama_petugas_tujuan']
+        ];
+    }
+
+    return ['mode' => 'NORMAL'];
+}
+
     public function get_ptk_context(string $ptkId): ?array
     {
         $result = $this->db
@@ -113,9 +108,6 @@ class M_Tindakan extends CI_Model
         return $result ?: null;
     }
 
-    /* =====================================================
-     * GET HISTORY FLAT
-     * ===================================================== */
     public function get_history_flat(string $ptkId): array
     {
         $ptk = $this->db
@@ -172,8 +164,6 @@ class M_Tindakan extends CI_Model
         $sql .= " WHERE p.id = ? LIMIT 1 ";
 
         $result = $this->db->query($sql, [$ptkId])->result_array();
-        
-        // Return array dengan index [0] untuk konsistensi dengan legacy code
         return !empty($result) ? $result : [
             [
                 'id' => $ptkId,
@@ -190,10 +180,6 @@ class M_Tindakan extends CI_Model
             ]
         ];
     }
-
-    /* =====================================================
-     * EVENT METHODS
-     * ===================================================== */
 
     private function ev_verifikasi($ptk_id)
     {
@@ -387,21 +373,26 @@ class M_Tindakan extends CI_Model
     }
 
     private function ev_perlakuan($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('pn_perlakuan')
-            ->result_array();
+{
+    $rows = $this->db
+        ->select("p.*, ui.nama AS user_input, ut.nama AS user_ttd")
+        ->from('pn_perlakuan p')
+        ->join('master_pegawai ui', 'ui.id = p.user_id', 'left')
+        ->join('master_pegawai ut', 'ut.id = p.user_ttd_id', 'left')
+        ->where('p.ptk_id', $ptk_id)
+        ->where('p.deleted_at', '1970-01-01 08:00:00')
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'K51',
-            'perlakuan',
-            'Perlakuan Karantina',
-            fn($r) => $this->link('perlakuan/k51', $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'K51',
+        'perlakuan',
+        'Perlakuan Karantina',
+        fn($r) => $this->link('perlakuan/k51', $r['id'])
+    );
+}
+
 
     private function ev_tangkapan($ptk_id)
     {
@@ -412,90 +403,114 @@ class M_Tindakan extends CI_Model
         return $this->map_rows($rows, 'TKP', 'tangkapan', 'Tangkapan', null);
     }
 
-    private function ev_penahanan($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('pn_penahanan')
-            ->result_array();
+  private function ev_penahanan($ptk_id)
+{
+    $rows = $this->db
+        ->select("p.*, ui.nama AS user_input, ut.nama AS user_ttd")
+        ->from('pn_penahanan p')
+        ->join('master_pegawai ui', 'ui.id = p.user_id', 'left')
+        ->join('master_pegawai ut', 'ut.id = p.user_ttd_id', 'left')
+        ->where('p.ptk_id', $ptk_id)
+        ->where('p.deleted_at', '1970-01-01 08:00:00')
+        ->order_by('p.created_at', 'DESC')
+        ->limit(1)
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'K6',
-            'penahanan',
-            'Penahanan',
-            fn($r) => $this->link_penahanan($r['nomor'], $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'K6',
+        'penahanan',
+        'Penahanan',
+        fn($r) => $this->link_penahanan($r['nomor'], $r['id'])
+    );
+}
 
-    private function ev_penolakan($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('pn_penolakan')
-            ->result_array();
+private function ev_penolakan($ptk_id)
+{
+    $rows = $this->db
+        ->select("p.*, ui.nama AS user_input, ut.nama AS user_ttd")
+        ->from('pn_penolakan p')
+        ->join('master_pegawai ui', 'ui.id = p.user_id', 'left')
+        ->join('master_pegawai ut', 'ut.id = p.user_ttd_id', 'left')
+        ->where('p.ptk_id', $ptk_id)
+        ->where('p.deleted_at', '1970-01-01 08:00:00')
+        ->order_by('p.created_at', 'DESC')
+        ->limit(1)
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'K7',
-            'penolakan',
-            'Penolakan',
-            fn($r) => $this->link_penolakan($r['nomor'], $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'K7',
+        'penolakan',
+        'Penolakan',
+        fn($r) => $this->link_penolakan($r['nomor'], $r['id'])
+    );
+}
 
-    private function ev_pemusnahan($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('pn_pemusnahan')
-            ->result_array();
+private function ev_pemusnahan($ptk_id)
+{
+    $rows = $this->db
+        ->select("p.*, ui.nama AS user_input, ut.nama AS user_ttd")
+        ->from('pn_pemusnahan p')
+        ->join('master_pegawai ui', 'ui.id = p.user_id', 'left')
+        ->join('master_pegawai ut', 'ut.id = p.user_ttd_id', 'left')
+        ->where('p.ptk_id', $ptk_id)
+        ->where('p.deleted_at', '1970-01-01 08:00:00')
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'K8',
-            'pemusnahan',
-            'Pemusnahan',
-            fn($r) => $this->link_pemusnahan($r['nomor'], $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'K8',
+        'pemusnahan',
+        'Pemusnahan',
+        fn($r) => $this->link_pemusnahan($r['nomor'], $r['id'])
+    );
+}
 
-    private function ev_serah($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('ba_penyerahan_mp')
-            ->result_array();
+   private function ev_serah($ptk_id)
+{
+    $rows = $this->db
+        ->select("ba.*, ui.nama AS user_input, ua.nama AS user_ttd")
+        ->from('ba_penyerahan_mp ba')
+        ->join('master_pegawai ui', 'ui.id = ba.user_id', 'left') 
+        ->join('master_pegawai ua', 'ua.id = ba.user_asal_id', 'left')
+        ->where('ba.ptk_id', $ptk_id)
+        ->where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'BA',
-            'serah',
-            'Serah Media Pembawa',
-            fn($r) => $this->link('serahterima/ba', $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'BA',
+        'serah',
+        'Serah Media Pembawa',
+        fn($r) => $this->link('serahterima/ba', $r['id'])
+    );
+}
 
-    private function ev_terima($ptk_id)
-    {
-        $rows = $this->db
-            ->where('ptk_id_penerima', $ptk_id)
-            ->where('deleted_at', '1970-01-01 08:00:00')
-            ->get('ba_penyerahan_mp')
-            ->result_array();
+private function ev_terima($ptk_id)
+{
+    $rows = $this->db
+        ->select("ba.*, ui.nama AS user_input, ut.nama AS user_ttd")
+        ->from('ba_penyerahan_mp ba')
+        ->join('master_pegawai ui', 'ui.id = ba.user_id', 'left') 
+        ->join('master_pegawai ut', 'ut.id = ba.user_tujuan_id', 'left')
+        ->where('ba.ptk_id_penerima', $ptk_id)
+        ->where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->get()
+        ->result_array();
 
-        return $this->map_rows(
-            $rows,
-            'BA',
-            'terima',
-            'Terima Media Pembawa',
-            fn($r) => $this->link('serahterima/ba', $r['id'])
-        );
-    }
+    return $this->map_rows(
+        $rows,
+        'BA',
+        'terima',
+        'Terima Media Pembawa',
+        fn($r) => $this->link('serahterima/ba', $r['id'])
+    );
+}
 
     private function pelepasan_table($kar)
     {
@@ -616,30 +631,43 @@ class M_Tindakan extends CI_Model
     }
 
     private function ev_status_ptk($ptk_id)
-    {
-        $p = $this->db->get_where('ptk', ['id' => $ptk_id])->row_array();
-        if (!$p || $p['is_batal'] != 1) return [];
+{
+    $p = $this->db
+        ->select('
+            p.user_batal, 
+            p.alasan_batal, 
+            p.no_dok_permohonan, 
+            p.tgl_dok_permohonan, 
+            p.deleted_at, 
+            p.is_batal,
+            mpg.nama AS pembatal
+        ')
+        ->from('ptk AS p')
+        ->join('master_pegawai AS mpg', 'p.user_batal = mpg.id', 'left')
+        ->where('p.id', $ptk_id)
+        ->where('p.is_batal', '1')
+        ->get()
+        ->row_array();
 
-        return [[
-            'kode' => 'PTK',
-            'jenis' => 'batal',
-            'judul' => 'Permohonan Dibatalkan',
-            'nomor' => null,
-            'tanggal' => $p['deleted_at'],
-            'waktu_input' => $p['deleted_at'],
-            'user_input' => null,
-            'user_ttd' => null,
-            'status' => 'batal',
-            'alasan' => $p['alasan_batal'],
-            'owner' => null,
-            'link' => null,
-            'meta' => $p
-        ]];
-    }
+    if (!$p) return [];
 
-    /* =====================================================
-     * HELPER METHODS
-     * ===================================================== */
+    return [[
+        'kode'        => 'PTK',
+        'jenis'       => 'batal',
+        'judul'       => 'Permohonan Dibatalkan',
+        'nomor'       => null,
+        'tanggal'     => $p['deleted_at'],
+        'waktu_input' => $p['deleted_at'],
+        'user_input'  => $p['pembatal'],
+        'user_ttd'    => null,
+        'status'      => 'batal',
+        'alasan'      => $p['alasan_batal'],
+        'owner'       => null,
+        'link'        => null,
+        'meta'        => $p
+    ]];
+}
+
 
     private function link($path, $id)
     {

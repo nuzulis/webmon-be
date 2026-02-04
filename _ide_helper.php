@@ -1,9 +1,5 @@
 <?php
-/**
- * Project: Webmon-BE
- * Description: IDE Helper untuk Intelephense agar mengenali Core CI dan Custom Models.
- * Place this file in your root folder.
- */
+
 
 class CI_Controller {
     /** @var CI_Config */
@@ -24,8 +20,6 @@ class CI_Controller {
     public $session;
     /** @var CI_Uri */
     public $uri;
-
-    // --- Tambahkan Custom Models Anda di bawah ini agar terdeteksi Global ---
     
     /** @var M_Ptk_Core */
     public $m_ptk_core;
@@ -52,7 +46,4 @@ class CI_Model {
     public $load;
 }
 
-/**
- * Jika Anda menggunakan MY_Controller sebagai base class
- */
 class MY_Controller extends CI_Controller {}

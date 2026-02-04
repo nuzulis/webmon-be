@@ -5,88 +5,110 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class KwitansiBelumBayar_model extends BaseModelStrict
 {
-    private $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/kuitansi/unpaid';
+    protected $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/kuitansi/unpaid';
+    private $_cache_data = null;
 
-    /* =====================================================
-     * FETCH DATA KWITANSI BELUM BAYAR DARI SIMPONI
-     * ===================================================== */
+    public function getIds($f, $limit, $offset) { return []; }
+    public function getByIds($ids) { return []; }
+
+    public function countAll($f)
+    {
+        $allData = $this->getAllDataFromSimponi($f);
+        return count($allData);
+    }
+
     public function fetch($f)
     {
-        $karantinaMap = [
-            'kh' => 'H',
-            'kt' => 'T',
-            'ki' => 'I',
-        ];
+        $allData = $this->getAllDataFromSimponi($f);
+        
+        $limit = isset($f['per_page']) ? (int)$f['per_page'] : 10;
+        $page = isset($f['page']) ? (int)$f['page'] : 1;
+        $offset = ($page - 1) * $limit;
 
-        $params = [
-            'dFrom'       => $f['start_date'],
-            'dTo'         => $f['end_date'],
-            'kar'         => $karantinaMap[strtolower($f['karantina'] ?? '')] ?? '',
-            'upt'         => ($f['upt'] !== 'all') ? $f['upt'] : '',
-            'permohonan'  => $f['permohonan'] ?? '',
-            'berdasarkan' => $f['berdasarkan'] ?? 'tanggal_aju',
-        ];
-
-        $response = $this->curlPost($this->endpoint, http_build_query($params));
-
-        if (!$response || empty($response['status']) || empty($response['data'])) {
-            return [];
-        }
-
-        return $this->normalize($response['data']);
+        return array_slice($allData, $offset, $limit);
     }
 
-    /* =====================================================
-     * NORMALISASI & DEDUP DATA (Berdasarkan Kode Bill)
-     * ===================================================== */
-    private function normalize($rows)
+    private function getAllDataFromSimponi($f)
+{
+    if ($this->_cache_data !== null) return $this->_cache_data;
+
+    $karInput = strtolower($f['karantina'] ?? '');
+    $karantinaField = match($karInput) {
+        'kh' => 'H',
+        'kt' => 'T',
+        'ki' => 'I',
+        default => ''
+    };
+
+    $uptField = ($f['upt'] !== 'all' && !empty($f['upt'])) ? $f['upt'] : '';
+
+    $permInput = strtolower($f['permohonan'] ?? '');
+    $permohonanField = in_array($permInput, ['ex', 'im', 'dk', 'dm']) ? $permInput : '';
+
+    $payload = [
+        'dFrom'       => $f['start_date'] ?? '',
+        'dTo'         => $f['end_date'] ?? '',
+        'kar'         => $karantinaField,
+        'upt'         => $uptField,
+        'permohonan'  => $permohonanField,
+        'berdasarkan' => $f['berdasarkan'] ?? '', 
+    ];
+
+    log_message('error', 'SIMPONI UNPAID PAYLOAD: ' . http_build_query($payload));
+
+    $response = $this->curlPost($this->endpoint, http_build_query($payload));
+
+    if (!$response || empty($response['status']) || !isset($response['data'])) {
+        $this->_cache_data = [];
+        return [];
+    }
+
+    $this->_cache_data = $this->normalize($response['data']);
+    return $this->_cache_data;
+}
+    
+private function normalize($rows)
     {
         if (!is_array($rows)) return [];
-
-        $unique = [];
-        foreach ($rows as $row) {
-            // Menggunakan kode_bill sebagai key unik karena satu ptk_id 
-            // bisa saja memiliki histori billing yang berbeda
-            $key = $row['kode_bill'] ?? $row['ptk_id'];
-            
-            $unique[$key] = [
-                'upt'              => $row['nama_upt'] ?? '',
-                'satpel'           => trim(($row['nama_satpel'] ?? '') . ' - ' . ($row['nama_pospel'] ?? '')),
-                'jenis_karantina'  => $this->mapKarantina($row['jenis_karantina'] ?? ''),
-                'nomor'            => $row['nomor'] ?? '', // No Kuitansi
-                'tanggal'          => $row['tanggal'] ?? '', // Tgl Kuitansi
-                'jenis_permohonan' => $this->mapPermohonan($row['jenis_permohonan'] ?? ''),
-                'wajib_bayar'      => $row['nama_wajib_bayar'] ?? '',
-                'total_pnbp'       => (float) ($row['total_pnbp'] ?? 0),
-                'kode_bill'        => $row['kode_bill'] ?? '',
-                'expired_date'     => $row['tgl_exp_billing'] ?? '', // Sangat penting untuk belum bayar
-                'tipe_bayar'       => $row['tipe_bayar'] ?? '',
-                'no_aju'           => $row['no_aju'] ?? ''
-            ];
-        }
-
-        $data = array_values($unique);
-
-        // Sort: tampilkan yang paling lama belum bayar atau yang paling baru billingnya
-        usort($data, function($a, $b) {
-            return strcmp($b['tanggal'], $a['tanggal']);
+        usort($rows, function ($a, $b) {
+            return strcmp($a['ptk_id'] ?? '', $b['ptk_id'] ?? '');
         });
 
-        return $data;
+        $processed_ids = [];
+        $out = [];
+
+        foreach ($rows as $item) {
+            $ptk_id = $item['ptk_id'] ?? '';
+            if ($ptk_id && in_array($ptk_id, $processed_ids)) {
+                continue;
+            }
+            $processed_ids[] = $ptk_id;
+
+            $out[] = [
+                'id'               => $item['id'] ?? '',
+                'nama_upt'         => $item['nama_upt'] ?? '',
+                'nama_satpel'      => $item['nama_satpel'] ?? '',
+                'nama_pospel'      => $item['nama_pospel'] ?? '',
+                'nomor'            => $item['nomor'] ?? '',
+                'no_aju'           => $item['ptk_id'] ?? '',
+                'tanggal'          => $item['tanggal'] ?? '',
+                'nama_wajib_bayar' => $item['nama_wajib_bayar'] ?? '',
+                'total_pnbp'       => (float) ($item['total_pnbp'] ?? 0),
+                'kode_bill'        => $item['kode_bill'] ?? '',
+                'expired_date'     => $item['tgl_exp_billing'] ?? ($item['date_bill_exp'] ?? '-'), 
+                'jenis_karantina'  => $this->mapKarantina($item['jenis_karantina'] ?? ''),
+                'jenis_permohonan' => $this->mapPermohonan($item['jenis_permohonan'] ?? ''),
+            ];
+        }
+        return $out;
     }
 
-    private function mapKarantina($v)
-    {
-        return match (strtoupper($v)) {
-            'H' => 'Hewan', 'I' => 'Ikan', 'T' => 'Tumbuhan', default => '-'
-        };
+    private function mapKarantina($v) {
+        return match (strtoupper($v)) { 'H' => 'Hewan', 'I' => 'Ikan', 'T' => 'Tumbuhan', default => '-' };
     }
 
-    private function mapPermohonan($v)
-    {
-        return match (strtoupper($v)) {
-            'EX' => 'Ekspor', 'IM' => 'Impor', 'DK' => 'Domestik Keluar', 'DM' => 'Domestik Masuk', default => '-'
-        };
+    private function mapPermohonan($v) {
+        return match (strtoupper($v)) { 'EX' => 'Ekspor', 'IM' => 'Impor', 'DK' => 'Domestik Keluar', 'DM' => 'Domestik Masuk', default => '-' };
     }
 
     private function curlPost($url, $payload)
@@ -101,9 +123,8 @@ class KwitansiBelumBayar_model extends BaseModelStrict
                 'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
             ],
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT        => 45 // Data unpaid biasanya butuh waktu tarik lebih lama
+            CURLOPT_TIMEOUT        => 60 
         ]);
-
         $res = curl_exec($ch);
         curl_close($ch);
         return json_decode($res, true);

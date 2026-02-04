@@ -39,7 +39,6 @@ function jwt_decode(string $token, string $key)
     $expected_signature = hash_hmac('sha256', $signing_input, $key, true);
 
     if (!hash_equals($signature, $expected_signature)) {
-        // DEBUG: Cek apakah signature tidak cocok
         log_message('error', 'JWT Debug: Signature mismatch. Check your Secret Key.');
         return false;
     }
@@ -47,7 +46,6 @@ function jwt_decode(string $token, string $key)
     $payload = json_decode(base64url_decode($payload64), true);
     
     if (isset($payload['exp']) && time() >= $payload['exp']) {
-        // DEBUG: Cek apakah token kedaluwarsa
         log_message('error', 'JWT Debug: Token Expired. Current time: ' . time() . ' Exp: ' . $payload['exp']);
         return false;
     }

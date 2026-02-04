@@ -7,9 +7,6 @@ class Ecert_model extends CI_Model
 
     private string $authHeader = 'Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm';
 
-    /**
-     * Ambil data e-Cert dari API eksternal
-     */
     public function fetch(array $f): array
     {
         if (empty($f['karantina']) || empty($f['start_date']) || empty($f['end_date'])) {
@@ -54,8 +51,6 @@ class Ecert_model extends CI_Model
         }
 
         curl_close($ch);
-
-        // ⚠️ API kadang kirim JSON invalid (leading comma)
         $response = preg_replace('/^\[\s*,/', '[', trim($response));
 
         $data = json_decode($response, true);

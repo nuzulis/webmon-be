@@ -19,96 +19,58 @@ class Pemusnahan extends MY_Controller
     }
 
     public function index()
-    {
-        /* =====================================================
-         * 1️⃣ JWT GUARD
-         * ===================================================== */
-        $auth = $this->input->get_request_header('Authorization', TRUE);
+{
+    $auth = $this->input->get_request_header('Authorization', TRUE);
+    if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth)) {
+        return $this->json(null, 401);
+    }
+    $filters = [
+        'upt'        => $this->input->get('upt', TRUE),
+        'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+        'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+        'start_date' => $this->input->get('start_date', TRUE),
+        'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
+    ];
 
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, [
-                'success' => false,
-                'message' => 'Unauthorized'
-            ]);
-        }
-
-        try {
-            
-        } catch (Exception $e) {
-            return $this->json(401, [
-                'success' => false,
-                'message' => 'Token tidak valid'
-            ]);
-        }
-
-        /* =====================================================
-         * 2️⃣ FILTER INPUT
-         * ===================================================== */
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-        ];
-
-        // validasi karantina jika diisi
-        if (!empty($filters['karantina']) && !in_array($filters['karantina'], ['H','I','T'], true)) {
-            return $this->json(400, [
-                'success' => false,
-                'message' => 'Jenis karantina tidak valid (H | I | T)'
-            ]);
-        }
-
-        /* =====================================================
-         * 3️⃣ PAGINATION
-         * ===================================================== */
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page');
-        $perPage = ($perPage > 0 && $perPage <= 25) ? $perPage : 20;
-        $offset  = ($page - 1) * $perPage;
-
-        /* =====================================================
-         * 4️⃣ STEP 1 — ID SAJA
-         * ===================================================== */
-        $ids = $this->Pemusnahan_model
-            ->getIds($filters, $perPage, $offset);
-
-        $rows = [];
-        if ($ids) {
-            // Hapus parameter kedua
-            $rows = $this->Pemusnahan_model->getByIds($ids); 
-        }
-        /* =====================================================
-         * 6️⃣ TOTAL
-         * ===================================================== */
-        $total = $this->Pemusnahan_model->countAll($filters);
-
-        return $this->json(200, [
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
-        ]);
+    if (!empty($filters['karantina']) && !in_array($filters['karantina'], ['H','I','T'], true)) {
+        return $this->json(null, 400);
     }
 
+    $page    = max((int)$this->input->get('page'), 1);
+    $perPage = 10;
+    $offset  = ($page - 1) * $perPage;
+    $rows  = $this->Pemusnahan_model->getList($filters, $perPage, $offset);
+    $total = $this->Pemusnahan_model->countAll($filters);
+
+    return $this->json([
+        'success' => true,
+        'data'    => $rows,
+        'meta'    => [
+            'page'       => $page,
+            'per_page'   => $perPage,
+            'total'      => $total,
+            'total_page' => (int) ceil($total / $perPage),
+        ]
+    ], 200);
+}
+
+
     public function export_excel()
-    {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-        ];
+{
+    $filters = [
+        'upt'        => $this->input->get('upt', TRUE),
+        'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
+        'start_date' => $this->input->get('start_date', TRUE),
+        'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
+    ];
 
-        $ids = $this->Pemusnahan_model->getIds($filters, 5000, 0);
-        $rows = $this->Pemusnahan_model->getByIds($ids, true); // true = mode export
+    $rows = $this->Pemusnahan_model->getExportByFilter($filters);
 
+    if (empty($rows)) {
+        return $this->json(['success' => false, 'message' => 'Data kosong'], 404);
+    }
         $headers = [
             'Pengajuan via', 'Nomor Dokumen', 'Tgl Dokumen', 'Satpel', 'Pengirim', 'Penerima',
             'Asal', 'Tujuan', 'Alasan Pemusnahan', 'Tempat Pemusnahan', 'Metode Pemusnahan',
@@ -118,10 +80,9 @@ class Pemusnahan extends MY_Controller
 
         $exportData = [];
         $lastId = null;
-        $no = 1; // Inisialisasi nomor urut
+        $no = 1; 
 
         foreach ($rows as $r) {
-            // Cek apakah ID PTK sama dengan baris sebelumnya
             $isIdem = ($r['id'] === $lastId);
             
             $exportData[] = [
@@ -151,15 +112,7 @@ class Pemusnahan extends MY_Controller
          $title = "LAPORAN PEMUSNAHAN " . $filters['karantina'];
         $this->load->library('excel_handler');
         $reportInfo = $this->buildReportHeader($title, $filters, $rows);
-
-    $this->load->library('excel_handler');
     return $this->excel_handler->download("Laporan_Pemusnahan", $headers, $exportData, $reportInfo);
     }
-    private function json(int $status, array $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
+   
 }

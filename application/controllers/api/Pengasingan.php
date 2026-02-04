@@ -21,7 +21,7 @@ class Pengasingan extends MY_Controller
     {
         $auth = $this->input->get_request_header('Authorization', TRUE);
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false]);
+            return $this->json(401);
         }
         $filters = [
             'upt'        => $this->input->get('upt'),
@@ -29,25 +29,16 @@ class Pengasingan extends MY_Controller
             'permohonan' => strtoupper($this->input->get('permohonan')),
             'start_date' => $this->input->get('start_date'),
             'end_date'   => $this->input->get('end_date'),
+            'search'     => $this->input->get('search', true),
         ];
 
-        /* =============================
-         * PAGINATION
-         * ============================= */
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page');
-        $perPage = ($perPage > 0 && $perPage <= 25) ? $perPage : 20;
+       $page    = max((int) $this->input->get('page'), 1);
+        $perPage = ((int) $this->input->get('per_page') === 10) ? 10 : 10;
         $offset  = ($page - 1) * $perPage;
-
-        /* =============================
-         * STEP 1 — ID SAJA
-         * ============================= */
         $ids = $this->Pengasingan_model
             ->getIds($filters, $perPage, $offset);
 
-        /* =============================
-         * STEP 2 — DATA
-         * ============================= */
+       
         $rows = [];
         if ($ids) {
             $rows = $this->Pengasingan_model
@@ -55,7 +46,7 @@ class Pengasingan extends MY_Controller
         }
         $total = $this->Pengasingan_model->countAll($filters);
 
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'data'    => $rows,
             'meta'    => [
@@ -64,7 +55,8 @@ class Pengasingan extends MY_Controller
                 'total'      => $total,
                 'total_page' => ceil($total / $perPage)
             ]
-        ]);
+        ], 200);
+
     }
     public function export_excel()
     {
@@ -74,13 +66,12 @@ class Pengasingan extends MY_Controller
             'permohonan' => strtoupper($this->input->get('permohonan')),
             'start_date' => $this->input->get('start_date'),
             'end_date'   => $this->input->get('end_date'),
+            'search'     => $this->input->get('search', true),
         ];
 
-        // 1. Ambil Data (Terurai)
-        $ids = $this->Pengasingan_model->getIds($filters, 5000, 0);
+        
+        $ids = $this->Pengasingan_model->getAllIdsForExport($filters);
         $rows = $this->Pengasingan_model->getByIds($ids, true);
-
-        // 2. Mapping Data Excel
         $headers = [
             'No', 'UPT', 'Nama Tempat', 'Tgl Mulai', 'Tgl Selesai', 
             'Komoditas', 'Jumlah', 'Satuan', 'Target', 
@@ -95,8 +86,6 @@ class Pengasingan extends MY_Controller
 
         foreach ($rows as $r) {
             $isIdem = ($r['id'] === $lastId);
-            
-            // Logika Kondisi (Native logic ported)
             $kondisi = [];
             if ($r['bus'] > 0) $kondisi[] = "busuk " . $r['bus'];
             if ($r['rus'] > 0) $kondisi[] = "rusak " . $r['rus'];
@@ -113,7 +102,6 @@ class Pengasingan extends MY_Controller
                 $isIdem ? '' : number_format($r['jumlah'], 3, ",", "."),
                 $isIdem ? '' : $r['satuan'],
                 $isIdem ? '' : $r['targets'],
-                // Detail Pengamatan (Selalu Tampil)
                 $r['nomor_ngasmat'],
                 $r['tgl_tk2'],
                 $r['pengamatan'],
@@ -130,19 +118,14 @@ class Pengasingan extends MY_Controller
             $lastId = $r['id'];
         }
 
-        // 3. Standarisasi Judul & Header
         $title = "LAPORAN PENGASINGAN DAN PENGAMATAN " . $filters['karantina'];
         $this->load->library('excel_handler');
         $reportInfo = $this->buildReportHeader($title, $filters);
 
         return $this->excel_handler->download("Laporan_Pengasingan", $headers, $exportData, $reportInfo);
-    }
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data));
-    }
+$rows = $this->Pengasingan_model->getByIds($ids, true);
+
+
+        }
 }

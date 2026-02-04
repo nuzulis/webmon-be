@@ -1,91 +1,90 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-require_once APPPATH . 'models/BaseModelStrict.php';
+require_once APPPATH.'models/BaseModelStrict.php';
 
 class Penolakan_model extends BaseModelStrict
 {
+    /* =====================================================
+     * MAP ALASAN
+     * ===================================================== */
     private array $alasanMap = [
         'alasan1' => 'Tidak dapat melengkapi dokumen persyaratan dalam waktu yang ditetapkan',
-        'alasan2' => 'Persyaratan dokumen lain tidak dapat dipenuhi dalam waktu yang ditetapkan',
+        'alasan2' => 'Persyaratan dokumen lain tidak dapat dipenuhi',
         'alasan3' => 'Berasal dari negara/daerah/tempat yang dilarang',
-        'alasan4' => 'Berasal dari negara/daerah tertular/berjangkit wabah penyakit',
-        'alasan5' => 'Jenis media pembawa yang dilarang',
-        'alasan6' => 'Sanitasi tidak baik / terkontaminasi / membahayakan',
-        'alasan7' => 'Laporan pemeriksaan ditemukan HPHK/HPIK/OPTK',
-        'alasan8' => 'Tidak bebas / tidak dapat dibebaskan dari HPHK/HPIK/OPTK',
+        'alasan4' => 'Berasal dari daerah wabah',
+        'alasan5' => 'Jenis media pembawa dilarang',
+        'alasan6' => 'Sanitasi tidak baik',
+        'alasan7' => 'Ditemukan HPHK/HPIK/OPTK',
+        'alasan8' => 'Tidak bebas OPTK',
     ];
 
-    /* ================= STEP 1 — AMBIL ID ================= */
-    public function getIds($f, $limit, $offset)
+    /* =====================================================
+     * OVERRIDE getList — 1 QUERY CEPAT
+     * ===================================================== */
+    public function getList($f, $limit, $offset)
     {
-        $this->db->select('p.id, MAX(p6.tanggal) AS last_tgl', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
-            ->where([
-                'p.is_verifikasi' => '1',
-                'p.is_batal'      => '0',
-                'p6.deleted_at'   => '1970-01-01 08:00:00',
-            ]);
+        $kar = strtoupper($f['karantina'] ?? 'H');
+        $kom = $kar === 'H' ? 'komoditas_hewan'
+             : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
 
-        // Gunakan helper filter dari parent
-        $this->applyCommonFilter($f, 'p');
-        $this->applyDateFilter('p6.tanggal', $f);
-
-        $this->db->group_by('p.id')
-                 ->order_by('last_tgl', 'DESC')
-                 ->limit($limit, $offset);
-
-        $res = $this->db->get()->result_array();
-        return array_column($res, 'id');
-    }
-
-    public function getByIds($ids, $is_export = false)
-    {
-        if (empty($ids)) return [];
-        $karantina = strtoupper($this->input->get('karantina', true));
-        $tabel_kom = "komoditas_" . ($karantina == 'H' ? 'hewan' : ($karantina == 'I' ? 'ikan' : 'tumbuhan'));
-
-        $this->db->select("
-            p.id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
-            p6.nomor AS nomor_penolakan, p6.tanggal AS tgl_penolakan,
-            mu.nama AS upt, mu.nama_satpel AS nama_satpel,
-            p.nama_pengirim, p.nama_penerima,
-            mn1.nama AS asal, mn3.nama AS kota_asal,
-            mn2.nama AS tujuan, mn4.nama AS kota_tujuan,
-            mp.nama AS petugas,
-            p6.alasan1, p6.alasan2, p6.alasan3, p6.alasan4, 
-            p6.alasan5, p6.alasan6, p6.alasan7, p6.alasan8, 
-            p6.alasan_lain AS alasanlain,
-            pkom.nama_umum_tercetak AS tercetak, 
-            pkom.volume_lain AS volume,
-            pkom.volumeP6 AS p6_vol,
-            pkom.kode_hs AS hs,
-            ms.nama AS satuan
+       $this->db->select("
+            p.id,
+            MAX(p.no_dok_permohonan) AS no_dok_permohonan,
+            MAX(p6.nomor) AS nomor_penolakan,
+            MAX(p6.tanggal) AS tgl_penolakan,
+            MAX(mu.nama) AS upt,
+            MAX(mu.nama_satpel) AS nama_satpel,
+            MAX(mp.nama) AS petugas,
+            GROUP_CONCAT(DISTINCT k.nama SEPARATOR '<br>') AS komoditas,
+            GROUP_CONCAT(DISTINCT pk.volumeP6 SEPARATOR '<br>') AS volume,
+            GROUP_CONCAT(DISTINCT ms.nama SEPARATOR '<br>') AS satuan,
+            MAX(p6.alasan1) AS alasan1,
+            MAX(p6.alasan2) AS alasan2,
+            MAX(p6.alasan3) AS alasan3,
+            MAX(p6.alasan4) AS alasan4,
+            MAX(p6.alasan5) AS alasan5,
+            MAX(p6.alasan6) AS alasan6,
+            MAX(p6.alasan7) AS alasan7,
+            MAX(p6.alasan8) AS alasan8,
+            MAX(p6.alasan_lain) AS alasan_lain
         ", false);
 
-        // Identifikasi Tabel Komoditas berdasarkan Karantina
-        $tabelKom = 'komoditas_hewan';
-        if ($karantina === 'KI') $tabelKom = 'komoditas_ikan';
-        if ($karantina === 'KT') $tabelKom = 'komoditas_tumbuhan';
 
-        $this->db->select("kom.nama AS komoditas");
 
         $this->db->from('ptk p')
             ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
             ->join('master_upt mu', 'p.kode_satpel = mu.id')
             ->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left')
-            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
-            ->join("$tabelKom kom", 'pkom.komoditas_id = kom.id')
-            ->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left')
-            ->join('master_negara mn1', 'p.negara_asal_id = mn1.id')
-            ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
-            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
-            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
+            ->join('ptk_komoditas pk', 'p.id = pk.ptk_id', 'left')
+            ->join("$kom k", 'pk.komoditas_id = k.id', 'left')
+            ->join('master_satuan ms', 'pk.satuan_lain_id = ms.id', 'left');
 
-        $this->db->where_in('p.id', $ids)
-                 ->where('pkom.deleted_at', '1970-01-01 08:00:00')
-                 ->order_by('p6.tanggal', 'DESC');
+        $this->db->where([
+            'p.is_verifikasi' => '1',
+            'p.is_batal'      => '0',
+            'p6.deleted_at'   => '1970-01-01 08:00:00',
+            'pk.deleted_at'   => '1970-01-01 08:00:00',
+        ]);
+
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
+            $this->db->like('p.kode_satpel', substr($f['upt'],0,2), 'after');
+        }
+
+        if (!empty($f['karantina'])) {
+            $this->db->where('p.jenis_karantina', $f['karantina']);
+        }
+
+        if (!empty($f['permohonan'])) {
+            $this->db->where('p.jenis_permohonan', $f['permohonan']);
+        }
+
+        $this->applyDateFilter('p6.tanggal', $f);
+
+        /* ================= GROUP & PAGE ================= */
+        $this->db->group_by('p.id')
+            ->order_by('tgl_penolakan', 'DESC')
+            ->limit($limit, $offset);
 
         $rows = $this->db->get()->result_array();
 
@@ -96,41 +95,119 @@ class Penolakan_model extends BaseModelStrict
         return $rows;
     }
 
-   private function buildAlasan(array $row): string
+    /* =====================================================
+     * EXPORT DETAIL — 1 BARIS = 1 KOMODITAS
+     * ===================================================== */
+    public function getExportByFilter($f)
     {
-        $messages = [];
-        foreach ($this->alasanMap as $key => $message) {
-            // Cek jika field alasan1 - alasan8 bernilai '1'
-            if (!empty($row[$key]) && $row[$key] === '1') {
-                $messages[] = $message;
-            }
+        $kar = strtoupper($f['karantina'] ?? 'H');
+        $kom = $kar === 'H' ? 'komoditas_hewan'
+             : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+
+        $this->db->select("
+            p.id,
+            p.no_dok_permohonan,
+            p.tgl_dok_permohonan,
+            p6.nomor   AS nomor_penolakan,
+            p6.tanggal AS tgl_penolakan,
+            mu.nama    AS upt,
+            mu.nama_satpel,
+            p.nama_pengirim,
+            p.nama_penerima,
+            mp.nama AS petugas,
+            k.nama  AS komoditas,
+            pk.kode_hs AS hs,
+            pk.volumeP6 AS volume,
+            ms.nama AS satuan,
+
+            p6.alasan1,p6.alasan2,p6.alasan3,p6.alasan4,
+            p6.alasan5,p6.alasan6,p6.alasan7,p6.alasan8,
+            p6.alasan_lain
+        ", false);
+
+        $this->db->from('ptk p')
+            ->join('pn_penolakan p6', 'p.id=p6.ptk_id')
+            ->join('master_upt mu', 'p.kode_satpel=mu.id')
+            ->join('master_pegawai mp', 'p6.user_ttd_id=mp.id', 'left')
+            ->join('ptk_komoditas pk', 'p.id=pk.ptk_id')
+            ->join("$kom k", 'pk.komoditas_id=k.id')
+            ->join('master_satuan ms', 'pk.satuan_lain_id=ms.id', 'left');
+
+        $this->db->where([
+            'p.is_verifikasi'=>'1',
+            'p.is_batal'=>'0',
+            'p6.deleted_at'=>'1970-01-01 08:00:00',
+            'pk.deleted_at'=>'1970-01-01 08:00:00'
+        ]);
+
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
+            $this->db->like('p.kode_satpel', substr($f['upt'],0,2), 'after');
         }
 
-        if (!empty($row['alasanlain']) && $row['alasanlain'] !== '0') {
-            $messages[] = "Lain-lain: " . strip_tags($row['alasanlain']);
+        if (!empty($f['karantina'])) {
+            $this->db->where('p.jenis_karantina', $f['karantina']);
         }
 
-        // Gunakan PHP_EOL agar di Excel menjadi baris baru (Alt+Enter)
-        return !empty($messages) ? implode(PHP_EOL, $messages) : "Tidak ada alasan yang diberikan";
-    }
-
-    
-    public function countAll($f)
-    {
-        $this->db->select('COUNT(DISTINCT p.id) AS total', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
-            ->where([
-                'p.is_verifikasi' => '1',
-                'p.is_batal'      => '0',
-                'p6.deleted_at'   => '1970-01-01 08:00:00',
-            ]);
-
-        $this->applyCommonFilter($f, 'p');
         $this->applyDateFilter('p6.tanggal', $f);
 
-        $row = $this->db->get()->row();
-        return $row ? (int) $row->total : 0;
+        $rows = $this->db->order_by('p6.tanggal','DESC')
+            ->get()
+            ->result_array();
+
+        foreach ($rows as &$r) {
+            $r['alasan_string'] = $this->buildAlasan($r);
+        }
+
+        return $rows;
     }
 
+    /* =====================================================
+     * COUNT ALL
+     * ===================================================== */
+    public function countAll($f)
+    {
+        $this->db->select('COUNT(DISTINCT p.id) total', false)
+            ->from('ptk p')
+            ->join('pn_penolakan p6','p.id=p6.ptk_id')
+            ->where([
+                'p.is_verifikasi'=>'1',
+                'p.is_batal'=>'0',
+                'p6.deleted_at'=>'1970-01-01 08:00:00'
+            ]);
+
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
+            $this->db->like('p.kode_satpel', substr($f['upt'],0,2),'after');
+        }
+
+        if (!empty($f['karantina'])) {
+            $this->db->where('p.jenis_karantina', $f['karantina']);
+        }
+
+        $this->applyDateFilter('p6.tanggal', $f);
+
+        return (int)($this->db->get()->row()->total ?? 0);
+    }
+
+    /* =====================================================
+     * ABSTRACT COMPATIBILITY (TIDAK DIPAKAI)
+     * ===================================================== */
+    public function getIds($f, $limit, $offset){ return []; }
+    public function getByIds($ids){ return []; }
+
+    /* =====================================================
+     * BUILD ALASAN STRING
+     * ===================================================== */
+    private function buildAlasan(array $r): string
+    {
+        $out = [];
+        foreach ($this->alasanMap as $k=>$v) {
+            if (!empty($r[$k]) && $r[$k]==='1') {
+                $out[] = "- {$v}";
+            }
+        }
+        if (!empty($r['alasan_lain']) && $r['alasan_lain']!=='0') {
+            $out[] = "Lain-lain: ".$r['alasan_lain'];
+        }
+        return $out ? implode(PHP_EOL, $out) : '-';
+    }
 }

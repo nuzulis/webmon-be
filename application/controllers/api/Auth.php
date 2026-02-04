@@ -21,65 +21,94 @@ class Auth extends MY_Controller
         date_default_timezone_set('Asia/Jakarta');
     }
 
-    public function login()
-    {
-        // Support JSON input (React)
-        $input = json_decode($this->input->raw_input_stream, true);
-        $username = trim($input['username'] ?? $this->input->post('username', TRUE));
-        $password = $input['password'] ?? $this->input->post('password', TRUE);
+   public function login()
+{
+    $input = json_decode($this->input->raw_input_stream, true);
+    $username = trim($input['username'] ?? $this->input->post('username', TRUE));
+    $password = $input['password'] ?? $this->input->post('password', TRUE);
 
-        if (!$username || !$password) {
-            return $this->jsonRes(400, ['success' => false, 'message' => 'Username/Password wajib diisi']);
-        }
-
-        // 1. Ambil User
-        $user = $this->db_ums->where('username', $username)
-                             ->where('deleted_at IS NULL', null, false)
-                             ->get('users')->row();
-
-        if (!$user || (int)$user->active !== 1) {
-            return $this->jsonRes(401, ['success' => false, 'message' => 'Akun tidak aktif atau tidak ditemukan']);
-        }
-
-        // 2. Simulasi/Validasi UMS (Pastikan fungsi umsLogin Anda mengembalikan array success)
-        $ums = $this->umsLogin($username, $password); 
-        if (!$ums['success']) {
-            $this->logActivity($user->id, $user->username, "LOGIN FAILED: UMS");
-            return $this->jsonRes(401, ['success' => false, 'message' => 'Login gagal']);
-        }
-
-        // 3. Ambil Roles
-        $roles = $this->db_ums->select('r.role_name, r.apps_id')
-            ->from('role_user ru')
-            ->join('roles r', 'r.id = ru.roles_id')
-            ->where(['ru.users_id' => $user->id, 'ru.active' => 1])
-            ->get()->result_array();
-
-        if (empty($roles)) {
-            return $this->jsonRes(403, ['success' => false, 'message' => 'User tidak punya role']);
-        }
-
-        // 4. Build Payload
-        $payload = [
-            'sub'   => $user->id,
-            'uname' => $user->username,
-            'nama'  => $user->nama,
-            'upt'   => (string)($user->upt_id ?? '0'),
-            'detil' => $roles,
-            'iat'   => time(),
-            'exp'   => time() + (int)$this->config->item('jwt_expire')
-        ];
-
-        $token = jwt_encode($payload, "");
-        $this->logActivity($user->id, $user->username, "LOGIN SUCCESS: 008-Webmon");
-        return $this->jsonRes(200, [
-            'success' => true,
-            'token'   => $token,
-            'user'    => ['nama' => $user->nama, 'upt' => $user->upt_id]
-        ]);
+    $ums = $this->umsLogin($username, $password); 
+    
+    if (!$ums['success']) {
+        return $this->jsonRes(401, ['success' => false, 'message' => $ums['message']]);
     }
 
-    protected function jsonRes(int $status, array $data)
+    // Data dari API Pusat sesuai strukturnya
+    $userData = $ums['data']; 
+    $roles = $userData['detil'] ?? [];
+
+    $payload = [
+        'sub'   => $userData['uid'],
+        'uname' => $userData['uname'],
+        'nama'  => $userData['nama'], 
+        'upt'   => (string)$userData['upt'],
+        'detil' => $roles, 
+        'iat'   => time(),
+        'exp'   => time() + (int)($this->config->item('jwt_expire') ?: 86400)
+    ];
+
+    // Gunakan key dari config atau hardcode jika testing
+    $key = $this->config->item('jwt_key') ?: "SECRET_KITA_123";
+    $token = jwt_encode($payload, $key);
+
+    return $this->jsonRes(200, [
+        'success' => true,
+        'token'   => $token,
+        'user'    => [
+            'nama' => $payload['nama'],
+            'upt'  => $payload['upt']
+        ]
+    ]);
+}
+
+
+
+    private function umsLogin($username, $password)
+{
+    $url = 'https://api.karantinaindonesia.go.id/ums/login';
+    $ch = curl_init($url);
+    
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode(['username' => $username, 'password' => $password]),
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4,
+        CURLOPT_ENCODING       => '',
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT        => 20,
+    ]);
+
+    $response = curl_exec($ch);
+    $errno = curl_errno($ch);
+    $error_msg = curl_error($ch);
+    curl_close($ch);
+
+    if ($errno) {
+        return [
+            'success' => false, 
+            'message' => "Koneksi Pusat Gagal: " . $error_msg
+        ];
+    }
+
+    $res = json_decode($response, true);
+    
+   if (isset($res['status']) && ($res['status'] == 200 || $res['status'] == "200") && !empty($res['data'])) {
+        return [
+            'success' => true, 
+            'data'    => $res['data']
+        ];
+    }
+
+    return [
+        'success' => false, 
+        'message' => isset($res['message']) ? $res['message'] : 'Username/Password salah'
+    ];
+}
+
+        protected function jsonRes(int $status, array $data)
     {
         return $this->output
             ->set_status_header($status)
@@ -88,32 +117,4 @@ class Auth extends MY_Controller
     }
     
 
-    private function umsLogin($username, $password)
-    {
-        $url = 'https://api.karantinaindonesia.go.id/ums/login';
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS     => json_encode(['username' => $username, 'password' => $password]),
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT        => 15,
-        ]);
-
-        $response = curl_exec($ch);
-        if ($response === false) return ['success' => false, 'message' => 'UMS Connection Error'];
-        curl_close($ch);
-
-        $res = json_decode($response, true);
-        if (isset($res['status']) && $res['status'] == '200') return ['success' => true];
-
-        return ['success' => false, 'message' => $res['message'] ?? 'Login UMS gagal'];
-    }
-
-    private function jsonResponse($status, $data) {
-        return $this->output->set_status_header($status)
-            ->set_content_type('application/json')
-            ->set_output(json_encode($data));
-    }
 }

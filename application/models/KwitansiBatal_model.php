@@ -5,33 +5,29 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class KwitansiBatal_model extends BaseModelStrict
 {
-    protected $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/batal/kuitansi';
+    private $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/batal/kuitansi';
 
     public function fetch($f)
     {
         $karMap = [
-            'kh' => 'H',
-            'ki' => 'I',
-            'kt' => 'T',
+            'kh' => 'H', 'ki' => 'I', 'kt' => 'T',
         ];
 
-        $karantina = $karMap[strtolower($f['karantina'] ?? '')] ?? '';
-        
-        $permMap    = ['ex', 'im', 'dk', 'dm'];
-        $permohonan = in_array(strtolower($f['permohonan'] ?? ''), $permMap, true)
-            ? strtolower($f['permohonan'])
-            : '';
+        $uptInput = $f['upt'] ?? 'all';
+        $uptField = '';
+        if ($uptInput !== 'all' && !empty($uptInput)) {
+            $uptField = (strlen($uptInput) > 2) ? substr($uptInput, 0, 2) : $uptInput;
+        }
 
-        $payload = http_build_query([
-            'dFrom'       => $f['start_date'],
-            'dTo'         => $f['end_date'],
-            'kar'         => $karantina,
-            'upt'         => $f['upt'] ?? '',
-            'permohonan'  => $permohonan,
+        $payload = [
+            'dFrom'       => $f['start_date'] ?? '',
+            'dTo'         => $f['end_date'] ?? '',
+            'kar'         => $karMap[strtolower($f['karantina'] ?? '')] ?? '',
+            'upt'         => $uptField,
+            'permohonan'  => $f['permohonan'] ?? '',
             'berdasarkan' => $f['berdasarkan'] ?? '',
-        ]);
-
-        $response = $this->curlPost($this->endpoint, $payload);
+        ];
+        $response = $this->curlPostJson($this->endpoint, json_encode($payload));
 
         if (!$response || empty($response['status']) || empty($response['data'])) {
             return [];
@@ -44,16 +40,10 @@ class KwitansiBatal_model extends BaseModelStrict
     {
         if (!is_array($rows)) return [];
 
+        $out = [];
         $seen = [];
-        $out  = [];
-
-        // Sort berdasarkan waktu hapus (terbaru di atas)
-        usort($rows, function($a, $b) {
-            return strcmp($b['deleted_at'] ?? '', $a['deleted_at'] ?? '');
-        });
 
         foreach ($rows as $r) {
-            // Gunakan kode_bill sebagai identifier unik utama untuk transaksi PNBP
             $uid = $r['kode_bill'] ?? ($r['ptk_id'] ?? null);
             if (!$uid || in_array($uid, $seen, true)) continue;
             $seen[] = $uid;
@@ -76,6 +66,9 @@ class KwitansiBatal_model extends BaseModelStrict
                 'deleted_at'       => $r['deleted_at'] ?? '',
             ];
         }
+        usort($out, function($a, $b) {
+            return strcmp($b['deleted_at'], $a['deleted_at']);
+        });
 
         return $out;
     }
@@ -83,43 +76,39 @@ class KwitansiBatal_model extends BaseModelStrict
     private function mapKarantina($v)
     {
         return match (strtoupper($v)) {
-            'H' => 'Hewan',
-            'I' => 'Ikan',
-            'T' => 'Tumbuhan',
-            default => '-',
+            'H' => 'Hewan', 'I' => 'Ikan', 'T' => 'Tumbuhan', default => '-'
         };
     }
 
     private function mapPermohonan($v)
     {
         return match (strtoupper($v)) {
-            'EX' => 'Ekspor',
-            'IM' => 'Impor',
-            'DK' => 'Domestik Keluar',
-            'DM' => 'Domestik Masuk',
-            default => '-',
+            'EX' => 'Ekspor', 'IM' => 'Impor', 'DK' => 'Domestik Keluar', 'DM' => 'Domestik Masuk', default => '-'
         };
     }
 
-    private function curlPost($url, $payload)
+    private function curlPostJson($url, $jsonPayload)
     {
         $ch = curl_init($url);
-
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_POSTFIELDS     => $jsonPayload,
             CURLOPT_HTTPHEADER     => [
-                'Content-Type: application/x-www-form-urlencoded',
+                'Content-Type: application/json',
                 'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
             ],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_TIMEOUT        => 30
         ]);
 
         $res = curl_exec($ch);
-        curl_close($ch);
-
+        if (is_resource($ch) || (is_object($ch) && $ch instanceof \CurlHandle)) {
+            curl_close($ch);
+        }
         return json_decode($res, true);
     }
+    public function getIds($filter = [], $limit = null, $offset = null): array { return []; }
+    public function getByIds($ids) { return []; }
+    public function countAll($filter = []): int { return 0; }
 }

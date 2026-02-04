@@ -11,6 +11,8 @@ class M_Ptk_Core extends CI_Model
         $this->db->select("
             p.id, p.tssm_id,p.no_aju, p.no_dok_permohonan,
             p.tgl_aju, p.tgl_dok_permohonan,
+            mu.nama AS upt, 
+            mu.nama_satpel AS satpel,
             p.nama_pemohon, p.alamat_pemohon,
             p.nama_pengirim, p.alamat_pengirim,
             p.nama_penerima, p.alamat_penerima,
@@ -23,6 +25,7 @@ class M_Ptk_Core extends CI_Model
             moda.nama AS moda
         ");
         $this->db->from('ptk p');
+        $this->db->join('master_upt mu','p.kode_satpel=mu.id','left');
         $this->db->join('master_negara mn1','p.negara_asal_id=mn1.id','left');
         $this->db->join('master_negara mn2','p.negara_tujuan_id=mn2.id','left');
         $this->db->join('master_pelabuhan pel_muat','p.pelabuhan_muat_id=pel_muat.id','left');
@@ -51,7 +54,14 @@ class M_Ptk_Core extends CI_Model
             p.volume_netto,
             p.volume_lain,
             ms.nama AS satuan,
-
+            p.jantanP1, p.betinaP1, 
+            p.jantanP2, p.betinaP2,
+            p.jantanP3, p.betinaP3, 
+            p.jantanP4, p.betinaP4,
+            p.jantanP5, p.betinaP5, 
+            p.jantanP6, p.betinaP6,
+            p.jantanP7, p.betinaP7, 
+            p.jantanP8, p.betinaP8,
             p.volumeP1, p.nettoP1,
             p.volumeP2, p.nettoP2,
             p.volumeP3, p.nettoP3,
@@ -120,12 +130,8 @@ class M_Ptk_Core extends CI_Model
         ->result_array();
 
     foreach ($rows as &$r) {
-        // penerbit
         $r['penerbit'] = $r['kota'] ?: $r['negara'];
-
-        // efile URL
         if ($r['jenis_dokumen_id'] === '104') {
-            // e-doc internal
             $r['efile_url'] = $r['efile'];
         } else {
             $r['efile_url'] = empty($r['tssm_id'])
@@ -138,9 +144,6 @@ class M_Ptk_Core extends CI_Model
 }
 
 
-    /* ========================================
-     * KONTAINER (REFACTOR get_kontainer.php)
-     * ======================================== */
     public function get_kontainer($ptk_id)
     {
         return $this->db

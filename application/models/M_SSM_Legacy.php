@@ -3,32 +3,20 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class M_SSM_Legacy extends CI_Model
 {
-    /* =====================================================
-     * PUBLIC ENTRY
-     * ===================================================== */
     public function build_respon_ssm(array $ptk, array $history): string
     {
-        // Validasi tssm_id - jika kosong, tetap lanjut tapi tandai sebagai NON SSM
         $tssmId = $ptk['tssm_id'] ?? null;
-
-        // Validasi jenis_permohonan dengan pengecekan aman
         $jenisPermohonan = $ptk['jenis_permohonan'] ?? null;
-        
-        // Hanya proses untuk IM dan EX
         if (!$jenisPermohonan || !in_array($jenisPermohonan, ['IM', 'EX'], true)) {
             return '';
         }
 
-        // Validasi history tidak kosong
         if (empty($history) || !isset($history[0])) {
-            // Tetap render HTML kosong untuk konsistensi
             return $this->render_html([], [], $tssmId);
         }
 
         $dataIzin = [];
         $dataSsm  = [];
-
-        // Jika tidak ada tssm_id, skip API call dan langsung render empty
         if (empty($tssmId)) {
             return $this->render_html($dataIzin, $dataSsm, $tssmId);
         }
@@ -55,16 +43,12 @@ class M_SSM_Legacy extends CI_Model
 
             $json = json_decode($raw, true);
             if (!$json) continue;
-
-            /* ===== IZIN ===== */
             if (!empty($json['data_izin'])) {
                 foreach ($json['data_izin'] as $izin) {
                     $izin['tgl_dok'] = $history[0][$tglKey] ?? null;
                     $dataIzin[] = $izin;
                 }
             }
-
-            /* ===== QC (AMBIL SEKALI) ===== */
             if (empty($dataSsm) && !empty($json['data_ssm'])) {
                 $dataSsm = $json['data_ssm'];
             }
@@ -73,9 +57,6 @@ class M_SSM_Legacy extends CI_Model
         return $this->render_html($dataIzin, $dataSsm, $tssmId);
     }
 
-    /* =====================================================
-     * CALL API SSM (LEGACY STYLE)
-     * ===================================================== */
     private function call_ssm_api(string $nomor, string $tssmId): ?string
     {
         $payload = json_encode([
@@ -106,15 +87,9 @@ class M_SSM_Legacy extends CI_Model
         curl_close($ch);
         return $resp;
     }
-
-    /* =====================================================
-     * RENDER HTML (COPY LOGIC setdatassm)
-     * ===================================================== */
     private function render_html(array $izin, array $qc, ?string $tssmId): string
     {
         $html  = '<div class="row">';
-
-        /* ===== IZIN ===== */
         $html .= '<div class="col-xs-12 col-sm-6" style="padding-right:50px">';
         $html .= '<h5 class="text-primary">Respon SSM Perizinan</h5>';
         $html .= '<ul class="timeline">';
@@ -132,7 +107,6 @@ class M_SSM_Legacy extends CI_Model
                         $respText = ($json['data']['kode'] ?? '')
                             . ' - ' . ($json['data']['keterangan'] ?? '');
                         
-                        // Jika ada error, tampilkan detail
                         if ($iz['kode'] != 200 && !empty($json['data']['data'])) {
                             $errIzin = '<ol>';
                             foreach ($json['data']['data'] as $e) {
@@ -142,7 +116,6 @@ class M_SSM_Legacy extends CI_Model
                         }
                     }
                 } else {
-                    // Cek jika respon adalah "Ijin telah diproses oleh INSW"
                     if ($iz['respon'] === 'Ijin telah diproses oleh INSW') {
                         $berhasil = true;
                     }
@@ -166,8 +139,6 @@ class M_SSM_Legacy extends CI_Model
         }
 
         $html .= '</ul></div>';
-
-        /* ===== QC ===== */
         $html .= '<div class="col-xs-12 col-sm-6">';
         $html .= '<h5 class="text-primary">Respon SSM QC '
               . (!empty($qc[0]['ajussm']) ? ' - '.$qc[0]['ajussm'] : '')

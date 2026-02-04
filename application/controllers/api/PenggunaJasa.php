@@ -18,99 +18,115 @@ class PenggunaJasa extends MY_Controller
     }
 
     public function index()
-    {
-        /* ================= JWT GUARD ================= */
-        $auth = $this->input->get_request_header('Authorization', true);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
-        }
+{
+    $page = $this->input->get('page') ?: 1;
+    $per_page = $this->input->get('per_page') ?: 10;
+    $upt = $this->input->get('upt');
+    $permohonan = $this->input->get('permohonan');
 
-        /* ================= FILTER ================= */
-        $filters = [
-            'upt'        => $this->input->get('upt', true),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', true))),
-        ];
+    $offset = ($page - 1) * $per_page;
+    $data = $this->PenggunaJasa_model->get_list_data($per_page, $offset, $upt, $permohonan);
+    $total = $this->PenggunaJasa_model->get_total_count($upt, $permohonan);
+    $total_page = ceil($total / $per_page);
 
-        /* ================= DATA ================= */
-        $rows = $this->PenggunaJasa_model->getList($filters);
+    return $this->jsonRes(200, [
+        'success' => true,
+        'data'    => $data,
+        'meta'    => [
+            'page'       => (int)$page,
+            'per_page'   => (int)$per_page,
+            'total'      => (int)$total,
+            'total_page' => (int)$total_page
+        ]
+    ]);
+}
+    
+    public function detail()
+{
+    $input = json_decode(file_get_contents("php://input"), true);
+    $id = $input['id'] ?? null;
 
-        return $this->json(200, [
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'total' => count($rows)
-            ]
+    if (!$id) return $this->jsonRes(400, ['success' => false, 'message' => 'ID tidak valid']);
+
+    
+    
+    $profil = $this->PenggunaJasa_model->get_profil_lengkap($id);
+
+$history = [];
+if ($profil) {
+    $history = $this->PenggunaJasa_model->get_history_ptk($profil['id']);
+}
+
+    return $this->jsonRes(200, [
+        'success' => true,
+        'data' => [
+            'profil'  => $profil,
+            'history' => $history
+        ]
+    ]);
+}
+
+    public function export_csv()
+{
+    set_time_limit(0);
+    ini_set('memory_limit', '256M');
+
+    $upt = $this->input->get('upt', true);
+    $permohonan = $this->input->get('permohonan', true);
+
+    $filters = [
+        'upt'        => ($upt === 'all' || empty($upt)) ? null : $upt,
+        'permohonan' => ($permohonan === 'all' || empty($permohonan)) ? null : $permohonan,
+    ];
+    $rows = $this->PenggunaJasa_model->getList($filters, true);
+
+    if (empty($rows)) {
+        die("Data tidak ditemukan.");
+    }
+    $filename = "Laporan_PenggunaJasa_" . date('Ymd_His') . ".csv";
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+    $output = fopen('php://output', 'w');
+    fputcsv($output, [
+        'No', 'Nama Pemohon', 'Jenis Perusahaan', 'Nama Perusahaan', 
+        'Identitas', 'Nomor Identitas', 'NITKU', 'UPT Registrasi', 
+        'Lingkup Aktivitas', 'Rerata Frekuensi', 'Daftar Komoditas', 
+        'Tempat Karantina', 'Status Kepemilikan', 'Email', 
+        'Nomor Registrasi', 'Tanggal Registrasi', 'Status Blokir'
+    ]);
+    $no = 1;
+    foreach ($rows as $r) {
+        $lingkupArr = json_decode($r['lingkup_aktifitas'], true) ?: [];
+        $lingkupTxt = implode("; ", array_column($lingkupArr, 'activity'));
+        $komoditasArr = json_decode($r['daftar_komoditas'], true) ?: [];
+        $komoditasTxt = implode("; ", array_filter($komoditasArr, function($v) { 
+            return !empty($v); 
+        }));
+
+        fputcsv($output, [
+            $no++,
+            $r['pemohon'],
+            $r['jenis_perusahaan'],
+            $r['nama_perusahaan'],
+            $r['jenis_identitas'],
+            $r['nomor_identitas'],
+            $r['nitku'],
+            $r['upt'],
+            $lingkupTxt ?: '-',
+            $r['rerata_frekuensi'],
+            $komoditasTxt ?: '-',
+            ($r['tempat_karantina'] == 1 ? 'Internal' : 'Luar'),
+            $r['status_kepemilikan'],
+            $r['email'],
+            $r['nomor_registrasi'],
+            $r['tgl_registrasi'],
+            ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif')
         ]);
-    }
-    public function export_excel()
-    {
-        /* ================= FILTER ================= */
-        $filters = [
-            'upt'        => $this->input->get('upt', true),
-            'permohonan' => $this->input->get('permohonan', true), // Ini mapping ke lingkup_aktifitas
-        ];
-
-        $rows = $this->PenggunaJasa_model->getList($filters, true);
-
-        // 2. Persiapan Header Excel
-        $headers = [
-            'No', 
-            'Nama Pemohon', 
-            'Jenis Perusahaan', 
-            'Nama Perusahaan', 
-            'Identitas (NPWP/KTP)', 
-            'Nomor Identitas', 
-            'NITKU',
-            'UPT Registrasi', 
-            'Lingkup Aktivitas', 
-            'Rerata Frekuensi', 
-            'Daftar Komoditas', 
-            'Tempat Karantina', 
-            'Status Kepemilikan',
-            'Email', 
-            'Nomor Registrasi', 
-            'Tanggal Registrasi', 
-            'Status Blokir'
-        ];
-
-        // 3. Mapping Data dengan Nomor Urut
-        $exportData = [];
-        $no = 1;
-
-        foreach ($rows as $r) {
-            $exportData[] = [
-                $no++,
-                $r['pemohon'],
-                $r['jenis_perusahaan'],
-                $r['nama_perusahaan'],
-                $r['jenis_identitas'],
-                $r['nomor_identitas'],
-                $r['nitku'],
-                $r['upt'],
-                $r['lingkup_aktifitas'],
-                $r['rerata_frekuensi'],
-                $r['daftar_komoditas'],
-                $r['tempat_karantina'],
-                $r['status_kepemilikan'],
-                $r['email'],
-                $r['nomor_registrasi'],
-                $r['tgl_registrasi'],
-                ($r['blockir'] === 1 ? 'Terblokir' : 'Aktif') // Konversi status blokir
-            ];
-        }
-
-        $title = "DATA REGISTRASI PENGGUNA JASA";
-        $this->load->library('excel_handler');
-        $reportInfo = $this->buildReportHeader($title, $filters);
-
-        return $this->excel_handler->download("Laporan_PenggunaJasa", $headers, $exportData, $reportInfo);
+        flush(); 
     }
 
-    private function json(int $status, array $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-    }
+    fclose($output);
+    exit;
+}
+
 }

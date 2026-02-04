@@ -17,43 +17,27 @@ class BatalPermohonan extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    /**
-     * API untuk List Data (React Table)
-     */
     public function index()
     {
-        // JWT divalidasi otomatis oleh MY_Controller::__construct()
-        // Jika gagal, MY_Controller langsung memanggil deny()
-
-        /* =============================
-         * FILTER
-         * ============================= */
         $filters = [
             'upt_id'     => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', true),
         ];
 
-        // Terapkan scope wilayah (Pusat vs UPT)
         $this->applyScope($filters);
 
-        /* =============================
-         * PAGINATION
-         * ============================= */
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page');
-        $perPage = ($perPage > 0 && $perPage <= 50) ? $perPage : 20;
+        $page    = max((int) $this->input->get('page'), 1);
+        $perPage = ((int) $this->input->get('per_page') === 10) ? 10 : 10;
         $offset  = ($page - 1) * $perPage;
 
-        /* =============================
-         * DATA FETCHING
-         * ============================= */
         $ids   = $this->BatalPermohonan_model->getIds($filters, $perPage, $offset);
         $rows  = $this->BatalPermohonan_model->getByIds($ids);
         $total = $this->BatalPermohonan_model->countAll($filters);
 
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'data'    => $rows,
             'meta'    => [
@@ -62,7 +46,7 @@ class BatalPermohonan extends MY_Controller
                 'total'      => $total,
                 'total_page' => (int) ceil($total / $perPage)
             ]
-        ]);
+        ], 200);
     }
 
     public function export_excel()
@@ -72,12 +56,12 @@ class BatalPermohonan extends MY_Controller
         'karantina'  => $this->input->get('karantina', TRUE),
         'start_date' => $this->input->get('start_date', TRUE),
         'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', true),
     ];
 
     $this->applyScope($filters);
     $rows = $this->BatalPermohonan_model->getFullData($filters);
-
-    // Persiapkan Informasi Header Laporan
+    
     $reportInfo = [
         'judul'      => "PEMBATALAN PERMOHONAN " . strtoupper($filters['karantina']),
         'upt'        => ($filters['upt_id'] === 'all' || empty($filters['upt_id'])) ? 'SEMUA UPT' : ($rows[0]['upt'] ?? 'UPT TERPILIH'),
@@ -108,11 +92,5 @@ class BatalPermohonan extends MY_Controller
     $this->excel_handler->download("Batal_Permohonan", $headers, $exportData, $reportInfo);
 }
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
+
 }

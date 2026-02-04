@@ -1,10 +1,11 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
+
 /**
  * @property CI_Input          $input
  * @property CI_Output         $output
  * @property CI_Config         $config
- * @property Pelepasan_model   $Pelepasan_model
+ * @property Pelepasan_model    $Pelepasan_model
  * @property Excel_handler      $excel_handler
  */
 class Pelepasan extends MY_Controller
@@ -19,42 +20,28 @@ class Pelepasan extends MY_Controller
 
     public function index()
     {
-        /* JWT */
         $auth = $this->input->get_request_header('Authorization', true);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
-        }
-
-        try {
-            
-        } catch (Exception $e) {
-            return $this->json(401, ['success' => false, 'message' => 'Token tidak valid']);
-        }
-
-        /* FILTER */
+        if (!$auth) return $this->json(401);
         $filters = [
-            'upt'        => $this->input->get('upt', true),
-            'karantina'  => strtoupper($this->input->get('karantina', true)),
-            'permohonan' => strtoupper($this->input->get('permohonan', true)),
+            'upt'       => $this->input->get('upt', true),
+            'karantina' => strtoupper($this->input->get('karantina', true) ?? 'H'),
+            'lingkup'   => $this->input->get('lingkup', true),
             'start_date' => $this->input->get('start_date', true),
             'end_date'   => $this->input->get('end_date', true),
+            'search'     => $this->input->get('search', true),
         ];
 
         if (!in_array($filters['karantina'], ['H','I','T'], true)) {
-            return $this->json(400, ['success' => false, 'message' => 'Karantina wajib (H/I/T)']);
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
         }
 
-        /* PAGINATION */
         $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page');
-        $perPage = ($perPage > 0 && $perPage <= 25) ? $perPage : 20;
+        $perPage = (int) $this->input->get('per_page') ?: 10;
         $offset  = ($page - 1) * $perPage;
-
-        $ids   = $this->Pelepasan_model->getIds($filters, $perPage, $offset);
-        $data = $ids ? $this->Pelepasan_model->getByIds($ids) : [];
+        $data  = $this->Pelepasan_model->getList($filters, $perPage, $offset);
         $total = $this->Pelepasan_model->countAll($filters);
 
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'data'    => $data,
             'meta'    => [
@@ -63,42 +50,41 @@ class Pelepasan extends MY_Controller
                 'total'      => $total,
                 'total_page' => ceil($total / $perPage),
             ]
-        ]);
+        ], 200);
     }
+
     public function export_excel()
-{
-    $filters = [
-        'upt'        => $this->input->get('upt', true),
-        'karantina'  => strtoupper($this->input->get('karantina', true)),
-        'permohonan' => strtoupper($this->input->get('permohonan', true)),
-        'start_date' => $this->input->get('start_date', true),
-        'end_date'   => $this->input->get('end_date', true),
-    ];
+    {
+        $filters = [
+            'upt'        => $this->input->get('upt', true),
+            'karantina'  => strtoupper($this->input->get('karantina', true)),
+            'lingkup'    => $this->input->get('lingkup', true),
+            'start_date' => $this->input->get('start_date', true),
+            'end_date'   => $this->input->get('end_date', true),
+            'search'     => $this->input->get('search', true),
+        ];
+        $rows = $this->Pelepasan_model->getExportByFilter($filters);
 
-    $ids = $this->Pelepasan_model->getIds($filters, 5000, 0);
-    $rows = $this->Pelepasan_model->getByIds($ids);
+        $headers = [
+            'No.', 'Pengajuan via', 'No. Aju', 'Tgl Aju', 'No. K.1.1', 'Tgl K.1.1', 'UPT', 'Satpel',
+            'Tempat Periksa', 'Alamat Tempat Periksa', 'Tgl Periksa', 'Pemohon', 'Alamat Pemohon', 'Identitas Pemohon',
+            'Pengirim', 'Alamat Pengirim', 'Identitas Pengirim', 'Penerima', 'Alamat Penerima', 'Identitas Penerima',
+            'Asal', 'Daerah Asal', 'Pelabuhan Asal', 'Tujuan', 'Daerah Tujuan', 'Pelabuhan Tujuan',
+            'Moda Alat Angkut', 'Nama Alat Angkut', 'Nomor Voyage', 'Jenis Kemasan', 'Jumlah Kemasan', 'Tanda Kemasan',
+            'Nomor Dokumen', 'Nomor Seri', 'Tgl Dokumen', 'Klasifikasi', 'Komoditas', 'Nama Tercetak', 'Kode HS',
+            'volumeP1', 'volumeP2', 'volumeP3', 'volumeP4', 'volumeP5', 'volumeP6', 'volumeP7', 'volumeP8',
+            'satuan', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
+            ];
 
-    $headers = [
-        'No.', 'Pengajuan via', 'No. Aju', 'Tgl Aju', 'No. K.1.1', 'Tgl K.1.1', 'UPT', 'Satpel',
-        'Tempat Periksa', 'Alamat Tempat Periksa', 'Tgl Periksa', 'Pemohon', 'Alamat Pemohon', 'Identitas Pemohon',
-        'Pengirim', 'Alamat Pengirim', 'Identitas Pengirim', 'Penerima', 'Alamat Penerima', 'Identitas Penerima',
-        'Asal', 'Daerah Asal', 'Pelabuhan Asal', 'Tujuan', 'Daerah Tujuan', 'Pelabuhan Tujuan',
-        'Moda Alat Angkut', 'Nama Alat Angkut', 'Nomor Voyage', 'Jenis Kemasan', 'Jumlah Kemasan', 'Tanda Kemasan',
-        'Nomor Dokumen', 'Nomor Seri', 'Tgl Dokumen', 'Klasifikasi', 'Komoditas', 'Nama Tercetak', 'Kode HS',
-        'volumeP1', 'volumeP2', 'volumeP3', 'volumeP4', 'volumeP5', 'volumeP6', 'volumeP7', 'volumeP8',
-        'satuan', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
-    ];
+        $exportData = [];
+        $no = 1;
+        $lastId = null;
 
-    $exportData = [];
-    $no = 1;
-    $lastId = null;
-
-    foreach ($rows as $r) {
+        foreach ($rows as $r) {
         $isIdem = ($r['id'] === $lastId);
-        
         $exportData[] = [
-            $isIdem ? '' : $no++, // Nomor Urut Idem
-            $isIdem ? 'Idem' : (isset($r['tssm_id']) ? 'SSM' : 'PTK'), // Kolom ini biasanya ikut Idem di native
+        $isIdem ? '' : $no++,
+        $isIdem ? 'Idem' : (isset($r['tssm_id']) ? 'SSM' : 'PTK'),
             $r['no_aju'],
             $r['tgl_aju'],
             $r['no_dok_permohonan'],
@@ -141,22 +127,13 @@ class Pelepasan extends MY_Controller
             $r['satuan'],
             $r['harga_rp'],
             $r['kontainer_string'],
-        $r['dokumen_pendukung_string']
+            $r['dokumen_pendukung_string']
         ];
         $lastId = $r['id'];
-    }
+        }
 
-    $title = "LAPORAN PELEPASAN KARANTINA " . $filters['karantina'];
-    $reportInfo = $this->buildReportHeader($title, $filters, $rows);
-
-    $this->load->library('excel_handler');
-    return $this->excel_handler->download("Laporan_Pelepasan", $headers, $exportData, $reportInfo);
-}
-    private function json(int $status, array $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
+        $title = "LAPORAN PELEPASAN (" . $filters['karantina'] . ")";
+        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+        return $this->excel_handler->download("Laporan_Pelepasan", $headers, $exportData, $reportInfo);
     }
 }

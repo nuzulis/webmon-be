@@ -21,13 +21,13 @@ class Ecert extends MY_Controller
         /* ================= JWT ================= */
         $auth = $this->input->get_request_header('Authorization', TRUE);
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Unauthorized']);
+            return $this->json(401);
         }
 
         try {
             
         } catch (Exception $e) {
-            return $this->json(401, ['success' => false, 'message' => 'Token tidak valid']);
+            return $this->json(401);
         }
 
         /* ================= FILTER ================= */
@@ -42,13 +42,13 @@ class Ecert extends MY_Controller
         $result = $this->Ecert_model->fetch($filters);
 
         if (!$result['success']) {
-            return $this->json(400, $result);
+            return $this->json(400);
         }
 
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'data'    => $this->format($result['data'])
-        ]);
+        ], 200);
     }
 
     /**
@@ -71,11 +71,4 @@ class Ecert extends MY_Controller
         }, $rows);
     }
 
-    private function json(int $status, array $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
 }

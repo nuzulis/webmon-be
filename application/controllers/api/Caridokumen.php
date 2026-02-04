@@ -14,11 +14,7 @@ class Caridokumen extends MY_Controller
     {
         parent::__construct();
         header('Access-Control-Allow-Origin: *');
-        
-        // 2. Izinkan method yang diperlukan
         header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
-        
-        // 3. Izinkan Header Authorization (untuk JWT) dan Content-Type
         header("Access-Control-Allow-Headers: Content-Type, Content-Length, Accept-Encoding, Authorization");
     if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
             header("HTTP/1.1 200 OK");
@@ -31,39 +27,32 @@ class Caridokumen extends MY_Controller
 
     public function search()
     {
-        // --- 1. VALIDASI JWT ---
         $auth = $this->input->get_request_header('Authorization', TRUE);
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, ['success' => false, 'message' => 'Token tidak ditemukan']);
+            return $this->json(401);
         }
 
         $key = 'WEBMON_SUPER_SECRET_KEY_GANTI_INI';
         $decoded = jwt_decode($m[1], $key);
 
         if (!$decoded) {
-            return $this->json(401, ['success' => false, 'message' => 'Token tidak valid atau kedaluwarsa']);
+            return $this->json(401);
         }
 
-        $user_upt_id = $decoded['upt'] ?? null; // Menggunakan 'upt' sesuai isi token
+        $user_upt_id = $decoded['upt'] ?? null;
         $user_role   = $decoded['detil'] ?? [];
-
-        // --- 2. VALIDASI INPUT ---
         $filter    = $this->input->post('filter', TRUE);
         $pencarian = $this->input->post('pencarian', TRUE);
 
         if (!$filter || !$pencarian) {
-            return $this->json(400, ['success' => false, 'message' => 'Filter dan kata kunci harus diisi']);
+            return $this->json(400);
         }
-
-        // --- 3. LOGIC (DENGAN FILTER UPT) ---
+        
         $pencarian = $this->caridokumen->replaceDok($pencarian);
         $dataPtk = $this->caridokumen->getPtk($filter, $pencarian, $user_upt_id);
 
         if (!$dataPtk) {
-            return $this->json(404, [
-                'success' => false,
-                'message' => 'Data PTK tidak ditemukan'
-            ]);
+            return $this->json(404);
         }
 
         $mapKarantina = [
@@ -73,26 +62,27 @@ class Caridokumen extends MY_Controller
 ];
 
 $jenis = strtolower($dataPtk['jenis_karantina']);
-// Jika tidak ditemukan di map, default ke kode aslinya
 $kode_karantina = isset($mapKarantina[$jenis]) ? $mapKarantina[$jenis] : substr($jenis, 0, 2);
 
-$history = $this->caridokumen->getHistory($dataPtk['id'], $kode_karantina);
+$history = $this->caridokumen->getHistory(
+    $dataPtk['id'],
+    $dataPtk['jenis_karantina']
+);
         $respon_ssm = '';
         if (in_array($dataPtk['jenis_permohonan'], ['IM', 'EX'], true)) {
-            $respon_ssm = $this->caridokumen->buildResponSsm(
+           $respon_ssm = $this->caridokumen->buildResponSsmJson(
                 $history,
                 $dataPtk['tssm_id']
             );
+
         }
 
-        // ================= RESPONSE =================
-        return $this->json(200, [
+        return $this->json([
             'success' => true,
             'message' => 'Berhasil load data',
             'data' => [
                 'dataPtk'     => $dataPtk,
-                'tbl_ptk'     => $this->caridokumen->setValueTblPtk($dataPtk),
-                'riwayat_dok' => $this->caridokumen->setValueRiwayat($history),
+                'riwayat_dok' => $this->caridokumen->setValueRiwayatJson($history),
                 'komoditas'   => $this->caridokumen->getKomoditas($dataPtk['id'], $dataPtk['jenis_karantina']),
                 'kontainer'   => $this->caridokumen->getKontainer($dataPtk['id']),
                 'dokumen'     => $this->caridokumen->getDokumen($dataPtk['id']),
@@ -100,14 +90,7 @@ $history = $this->caridokumen->getHistory($dataPtk['id'], $kode_karantina);
                 'kuitansi'    => $this->caridokumen->getKuitansiHtml($dataPtk['id']),
                 'respon_ssm'  => $respon_ssm
             ]
-        ]);
+        ], 200);
     }
 
-    private function json($status, $data)
-    {
-        return $this->output
-            ->set_status_header($status)
-            ->set_content_type('application/json')
-            ->set_output(json_encode($data, JSON_UNESCAPED_UNICODE));
-    }
 }

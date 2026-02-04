@@ -1027,7 +1027,7 @@ class CI_Security {
 		{
 			foreach ($matches[0] as $match)
 			{
-				$out .= preg_replace('#/\*.*?\*/#s', '', $match);
+				$out .= preg_replace('##s', '', $match);
 			}
 		}
 
