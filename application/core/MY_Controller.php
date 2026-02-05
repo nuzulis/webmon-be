@@ -29,26 +29,21 @@ class MY_Controller extends CI_Controller
         date_default_timezone_set('Asia/Jakarta');
         $this->handleSecurity();
     }
+   
     protected function handleSecurity(): void
     {
         $controller = strtolower($this->router->fetch_class());
 
-        $whiteList = [
-            'auth',
-            'welcome',
-            'dashboard'
-        ];
-
+        $whiteList = ['auth', 'welcome', 'dashboard'];
         if (in_array($controller, $whiteList, true)) {
             return;
         }
-
         $this->validateJwt();
-        $this->logActivity();
-
         $category = $this->determineCategory($controller);
         $this->requireFeature($category . '.' . $controller);
+        $this->logActivity();
     }
+
 
     protected function determineCategory(string $controller): string
     {
@@ -174,23 +169,32 @@ class MY_Controller extends CI_Controller
 
     public function logActivity(?string $customAction = null): bool
     {
-        $controller = strtoupper($this->router->fetch_class());
-        $method     = $this->router->fetch_method();
+        try {
+            $controller = strtoupper($this->router->fetch_class());
+            $method     = $this->router->fetch_method();
 
-        $action = $customAction
-            ?: "AKSES MENU: {$controller} ({$method})";
+            $action = $customAction
+                ?: "AKSES MENU: {$controller} ({$method})";
 
-        return $this->db_ums->insert('activity_log', [
-            'id'         => $this->uuidV4(),
-            'users_id'   => $this->user['sub']   ?? null,
-            'username'   => $this->user['uname'] ?? 'guest',
-            'action'     => $action,
-            'apps_id'    => '008',
-            'ip_address' => $this->input->ip_address(),
-            'user_agent' => $this->agent->agent_string(),
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+            $this->db_ums->insert('activity_log', [
+                'id'         => $this->uuidV4(),
+                'users_id'   => $this->user['sub']   ?? null,
+                'username'   => $this->user['uname'] ?? 'guest',
+                'action'     => $action,
+                'apps_id'    => '008',
+                'ip_address' => $this->input->ip_address(),
+                'user_agent' => $this->agent->agent_string(),
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            return true;
+
+        } catch (\Throwable $e) {
+            log_message('error', 'Activity log skipped: ' . $e->getMessage());
+            return false;
+        }
     }
+
 
     protected function uuidV4(): string
     {
@@ -216,9 +220,18 @@ class MY_Controller extends CI_Controller
 
     protected function buildReportHeader(string $title, array $filters, array $data = []): array
     {
-        $uptName = (!empty($filters['upt_id']) && $filters['upt_id'] !== 'all')
-            ? ($data[0]['upt'] ?? 'UPT TERPILIH')
-            : 'SEMUA UPT';
+        $uptName = 'SEMUA UPT';
+        if (!empty($filters['upt_id']) && $filters['upt_id'] !== 'all') {
+            if (!empty($data) && isset($data[0]['upt'])) {
+                $uptName = $data[0]['upt'];
+            }
+            elseif (!empty($this->user['upt'])) {
+                $uptName = 'UPT ' . $this->user['upt'];
+            }
+            else {
+                $uptName = 'UPT';
+            }
+        }
 
         return [
             'judul'     => strtoupper($title),
@@ -230,6 +243,7 @@ class MY_Controller extends CI_Controller
             'report_id' => "REPBTL-" . date('Ymd') . "-" . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT)
         ];
     }
+
     protected function jsonRes(int $status, array $data)
     {
         return $this->output
