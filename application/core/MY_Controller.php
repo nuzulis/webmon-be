@@ -167,7 +167,7 @@ class MY_Controller extends CI_Controller
         $filter['upt_id'] = $userUpt;
     }
 
-    public function logActivity(?string $customAction = null): bool
+    public function logActivity(?string $customAction = null, ?string $appsId = '008'): bool
     {
         try {
             $controller = strtoupper($this->router->fetch_class());
@@ -181,7 +181,7 @@ class MY_Controller extends CI_Controller
                 'users_id'   => $this->user['sub']   ?? null,
                 'username'   => $this->user['uname'] ?? 'guest',
                 'action'     => $action,
-                'apps_id'    => '008',
+                'apps_id'    => $appsId,
                 'ip_address' => $this->input->ip_address(),
                 'user_agent' => $this->agent->agent_string(),
                 'created_at' => date('Y-m-d H:i:s'),

@@ -49,6 +49,14 @@ class Auth extends MY_Controller
     $key = $this->config->item('jwt_key') ?: "SECRET_123";
     $token = jwt_encode($payload, $key);
 
+    $this->user = [
+    'sub'   => $userData['uid'],
+    'uname' => $userData['uname'],
+    'nama'  => $userData['nama'],
+    'upt'   => $userData['upt'],
+    ];
+
+    $this->logActivity('LOGIN', '008');
     return $this->jsonRes(200, [
         'success' => true,
         'token'   => $token,
