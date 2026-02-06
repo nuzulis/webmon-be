@@ -92,10 +92,10 @@ class Dashboard extends MY_Controller
             'upt_id' => $this->input->get('upt_id', true) ?: 'all',
             'jns'    => strtoupper($this->input->get('jns', true) ?: 'Y'),
             'year'   => (int) ($this->input->get('year', true) ?: date('Y')),
+            'month'  => $this->input->get('month', true) ?: date('m'),
         ];
 
-        $cacheKey = "pnbp_v2_{$filter['upt_id']}_{$filter['jns']}_{$filter['year']}";
-
+        $cacheKey = "pnbp_v2_{$filter['upt_id']}_{$filter['jns']}_{$filter['year']}_{$filter['month']}";
         if (!$data = $this->cache->get($cacheKey)) {
             $data = $this->Dashboard_model->get_pnbp($filter);
             $this->cache->save($cacheKey, $data, 43200); 

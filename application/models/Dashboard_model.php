@@ -213,25 +213,31 @@ class Dashboard_model extends CI_Model
         return $db->query($sql)->result_array();
     }
 
-    public function get_pnbp($filter) 
-    {
-        $db = $this->dbBarantin();
-        if (!$db) return [];
+     public function get_pnbp($filter) 
+{
+    $db = $this->dbBarantin();
+    if (!$db) return [];
+    $uptId = $filter['upt_id'] ?? 'ALL';
+    $kdupt = ($uptId == '1000' || strtoupper($uptId) === 'ALL') ? 'ALL' : (string)$uptId;
 
-        $uptId = $filter['upt_id'] ?? 'ALL';
-        $kdupt = ($uptId === 'all' || $uptId === 'ALL') ? 'ALL' : substr((string)$uptId, 0, 2);
-        $year  = $filter['year'] ?? date('Y');
-        $month = ($filter['jns'] === 'M') ? date('m') : '0';
-        $query = $db->query("CALL dashboard.GetPNBP(?, ?, ?)", [$year, $month, $kdupt]);
-        
-        if ($query) {
-            $result = $query->result_array();
-            
-            if (method_exists($db->conn_id, 'next_result')) {
-                $db->conn_id->next_result();
-            }
-            return $result;
+    $year  = (int)($filter['year'] ?? date('Y'));
+    $isMonthly = (isset($filter['jns']) && $filter['jns'] === 'M');
+    $month = $isMonthly ? (int)($filter['month'] ?? date('m')) : 0;
+
+    $query = $db->query("CALL dashboard.GetPNBP(?, ?, ?)", [
+        $year, 
+        $month, 
+        $kdupt
+    ]);
+
+    if ($query) {
+        $result = $query->result_array();
+        if (method_exists($db->conn_id, 'next_result')) {
+            $db->conn_id->next_result();
         }
-        return [];
+        return $result;
     }
+    return [];
+}
+
 }
