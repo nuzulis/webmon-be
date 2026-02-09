@@ -39,7 +39,7 @@ class Domasonline_model extends BaseModelStrict
             GROUP_CONCAT(kom.nama SEPARATOR '<br>') AS komoditas,
             GROUP_CONCAT(pkom.volume_lain SEPARATOR '<br>') AS volume,
             GROUP_CONCAT(ms.nama SEPARATOR '<br>') AS satuan,
-            IF(MAX(dm.id) IS NOT NULL, 'DITERIMA', 'BELUM DITANGGANI') AS status_penerimaan,
+            IF(MAX(dm.id) IS NOT NULL, 'DITERIMA', 'BELUM DITERIMA') AS status_penerimaan,
             MAX(dm.no_dok_permohonan) AS no_dok_dm,
             MAX(dm.tgl_dok_permohonan) AS tgl_dok_dm
         ", false);
@@ -138,7 +138,7 @@ class Domasonline_model extends BaseModelStrict
         ms.nama AS satuan,
         CASE 
             WHEN dm.id IS NOT NULL THEN 'DITERIMA'
-            ELSE 'BELUM DITANGGANI'
+            ELSE 'BELUM DITERIMA'
         END AS status_penerimaan,
         dm.no_dok_permohonan AS no_dok_dm,
         dm.tgl_dok_permohonan AS tgl_dok_dm
