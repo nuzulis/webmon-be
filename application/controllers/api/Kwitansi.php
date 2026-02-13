@@ -2,10 +2,10 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * @property CI_Input        $input
- * @property CI_Output       $output
- * @property CI_Config       $config
- * @property Kwitansi_model $Kwitansi_model
+ * @property CI_Input         $input
+ * @property CI_Output        $output
+ * @property CI_Session       $session
+ * @property Kwitansi_model   $Kwitansi_model
  * @property Excel_handler    $excel_handler
  */
 class Kwitansi extends MY_Controller
@@ -14,84 +14,65 @@ class Kwitansi extends MY_Controller
     {
         parent::__construct();
         $this->load->model('Kwitansi_model');
-        $this->load->helper('jwt');
+        $this->load->library('session');
         $this->load->library('excel_handler');
     }
 
     public function index()
     {
-        /* ================= JWT GUARD ================= */
-        $auth = $this->input->get_request_header('Authorization', TRUE);
-        if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401, 'Unauthorized');
-        }
-
-        try {
-            
-        } catch (Exception $e) {
-            return $this->json(401, 'Token tidak valid');
-        }
-
         $filters = [
-            'karantina'   => $this->input->get('karantina'),
-            'permohonan'  => $this->input->get('permohonan'),
-            'upt'         => $this->input->get('upt') ?: 'all', 
-            'start_date'  => $this->input->get('start_date'),
-            'end_date'    => $this->input->get('end_date'),
-            'berdasarkan' => $this->input->get('berdasarkan'),
-            'page'        => $this->input->get('page') ?: 1,
-            'per_page'    => $this->input->get('per_page') ?: 10,
+            'karantina'   => $this->input->get('karantina', TRUE),
+            'permohonan'  => $this->input->get('permohonan', TRUE),
+            'upt'         => $this->input->get('upt', TRUE) ?: 'all',
+            'start_date'  => $this->input->get('start_date', TRUE),
+            'end_date'    => $this->input->get('end_date', TRUE),
+            'berdasarkan' => $this->input->get('berdasarkan', TRUE),
+            'search'      => $this->input->get('search', TRUE),
+            'sort_by'     => $this->input->get('sort_by', TRUE),
+            'sort_order'  => $this->input->get('sort_order', TRUE),
         ];
-    $data = $this->Kwitansi_model->fetch($filters);
 
-    $totalCount = (int) $this->Kwitansi_model->countAll($filters);
-    $perPage    = (int) ($filters['per_page'] ?? 10);
-    $currentPage = (int) ($filters['page'] ?? 1);
+        $page    = max((int) $this->input->get('page'), 1);
+        $perPage = (int) $this->input->get('per_page') ?: 10;
+        $offset  = ($page - 1) * $perPage;
+        $ids   = $this->Kwitansi_model->getIds($filters, $perPage, $offset);
+        $data  = $this->Kwitansi_model->getByIds($ids);
+        $total = $this->Kwitansi_model->countAll($filters);
 
-    return $this->json([
-        'success' => true,
-        'data'    => $data,
-        'meta'    => [
-            'total'      => $totalCount,
-            'page'       => $currentPage,
-            'per_page'   => $perPage,
-            'total_page' => $totalCount > 0 ? ceil($totalCount / $perPage) : 0
-        ]
-    ], 200);
+        return $this->json([
+            'success' => true,
+            'data'    => $data,
+            'meta'    => [
+                'page'       => $page,
+                'per_page'   => $perPage,
+                'total'      => $total,
+                'total_page' => (int) ceil($total / $perPage)
+            ]
+        ], 200);
     }
 
     public function export_excel()
     {
-       
         $filters = [
-            'karantina'   => $this->input->get('karantina'),
-            'permohonan'  => $this->input->get('permohonan'),
-            'upt'         => $this->input->get('upt') ?: 'all',
-            'start_date'  => $this->input->get('start_date'),
-            'end_date'    => $this->input->get('end_date'),
-            'berdasarkan' => $this->input->get('berdasarkan'),
+            'karantina'   => $this->input->get('karantina', TRUE),
+            'permohonan'  => $this->input->get('permohonan', TRUE),
+            'upt'         => $this->input->get('upt', TRUE) ?: 'all',
+            'start_date'  => $this->input->get('start_date', TRUE),
+            'end_date'    => $this->input->get('end_date', TRUE),
+            'berdasarkan' => $this->input->get('berdasarkan', TRUE),
+            'search'      => $this->input->get('search', TRUE),
         ];
+        $data = $this->Kwitansi_model->getFullData($filters);
 
-       
-        $data = $this->Kwitansi_model->getAll($filters);
-
-    if (empty($data)) {
-        die("Data tidak ditemukan untuk periode ini.");
-    }
-
-if (empty($data)) {
-    return $this->jsonRes(200, [
-        'debug_info' => 'Data kosong',
-        'filters_sent' => $filters,
-        'endpoint' => 'https://simponi.karantinaindonesia.go.id/epnbp/laporan/webmon'
-    ]);
-}
         if (empty($data)) {
-            return $this->jsonRes(404, ['success' => false, 'message' => "Data Kwitansi tidak ditemukan"]);
-    }
+            return $this->json([
+                'success' => false,
+                'message' => 'Data Kwitansi tidak ditemukan'
+            ], 404);
+        }
 
         $headers = [
-            'Nomor', 'UPT', 'Satpel', 'Karantina', 
+            'No.', 'UPT', 'Satpel', 'Karantina', 
             'Nomor Kwitansi', 'Tanggal Kwitansi', 'Jenis Permohonan', 
             'Nama Wajib Bayar', 'Tipe Bayar', 'Total PNBP', 'Kode Billing', 
             'NTPN', 'NTB', 'Tanggal Billing', 'Tanggal Setor', 'Bank'
@@ -99,6 +80,7 @@ if (empty($data)) {
 
         $exportData = [];
         $no = 1;
+        
         foreach ($data as $item) {
             $exportData[] = [
                 $no++,
@@ -120,7 +102,6 @@ if (empty($data)) {
             ];
         }
 
-        /* 5. Build Info Berdasarkan Filter */
         $labelBerdasarkan = match ($filters['berdasarkan']) {
             'D' => 'Tgl Dokumen',
             'K', 'Q' => 'Tgl Kuitansi',
@@ -135,6 +116,4 @@ if (empty($data)) {
 
         return $this->excel_handler->download("Kwitansi_PNBP", $headers, $exportData, $reportInfo);
     }
-
-   
 }

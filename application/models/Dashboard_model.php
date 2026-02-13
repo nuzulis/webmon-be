@@ -240,4 +240,63 @@ class Dashboard_model extends CI_Model
     return [];
 }
 
+public function pnbp_potensi()
+{
+    $uptId = $this->input->get('upt_id');
+    $year  = $this->input->get('year') ?? date('Y');
+    $month = $this->input->get('month') ?? date('m');
+    $kdupt = ($uptId == '1000' || strtoupper($uptId) === 'ALL') ? '' : $uptId;
+    $url = "https://simponi.karantinaindonesia.go.id/epnbp/laporan";
+    $postData = http_build_query([
+        'thn' => $year,
+        'bln' => $month,
+        'upt' => $kdupt
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/x-www-form-urlencoded',
+        'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
+    ]);
+    
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        return $this->output
+            ->set_status_header(500)
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'status' => false, 
+                'message' => 'CURL Error: ' . $curlError
+            ]));
+    }
+    $data = json_decode($response, true);
+    if (isset($data['status']) && $data['status'] && !empty($data['data'])) {
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => true,
+                'data' => $data['data'][0]
+            ]));
+    } else {
+        return $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode([
+                'success' => false,
+                'data' => null,
+                'message' => $data['message'] ?? 'Data tidak ditemukan di server'
+            ]));
+    }
+}
+
 }

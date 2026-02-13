@@ -2,55 +2,47 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Detail Prior Notice (lookup eksternal REST PRIOR)
- *
- * @property M_Priornotice $prior
+ * @property M_Priornotice $M_Priornotice
  */
 class PriornoticeDetail extends MY_Controller
 {
     public function __construct()
     {
         parent::__construct();
-        $this->load->model('M_Priornotice', 'prior');
+        $this->load->model('M_Priornotice');
     }
 
-    /**
-     * Ambil detail Prior Notice berdasarkan docnbr
-     * HANYA untuk halaman detail Prior Notice
-     */
     public function view()
     {
-        $docnbr = trim($this->input->post('docnbr'));
+        $docnbr = trim($this->input->post('docnbr', TRUE));
 
-        if (!$docnbr) {
-            return $this->json_error('docnbr wajib diisi');
+        if (empty($docnbr)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Nomor Dokumen (docnbr) wajib diisi'
+            ], 400);
         }
 
-        $data = $this->prior->get_by_docnbr($docnbr);
+        try {
+            $data = $this->M_Priornotice->get_by_docnbr($docnbr);
 
-        if (!$data) {
-            return $this->json_error('Data Prior Notice tidak ditemukan');
-        }
+            if (empty($data)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Data Prior Notice tidak ditemukan.'
+                ], 404);
+            }
 
-        return $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
+            return $this->json([
                 'success' => true,
                 'data'    => $data
-            ]));
-    }
+            ], 200);
 
-    /* ===============================
-     * HELPER RESPONSE
-     * =============================== */
-    private function json_error(string $msg, int $code = 400)
-    {
-        return $this->output
-            ->set_status_header($code)
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
+        } catch (Exception $e) {
+            return $this->json([
                 'success' => false,
-                'message' => $msg
-            ]));
+                'message' => 'Server Error: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

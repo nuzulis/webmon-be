@@ -144,7 +144,6 @@ class Caridokumen_model extends CI_Model {
 
     $sql = "
         SELECT 
-            /* ================= PTK ================= */
             p.id,
             p.no_aju,
             p.no_dok_permohonan AS no_dok,
@@ -154,24 +153,18 @@ class Caridokumen_model extends CI_Model {
             p.petugas,
             p.nip,
             p.created_at AS tgl_input_k11,
-
-            /* ================= SERAH TERIMA ================= */
             st.id            AS id_st,
             st.nomor         AS nomor_st,
             st.tanggal       AS tgl_st,
             st.created_at    AS tgl_input_st,
             tst.nama         AS nama_st,
             tst.nip          AS nip_st,
-
-            /* ===== UPT PENERIMA ===== */
             pen.id                   AS id_pen,
             pen.no_dok_permohonan    AS no_dok_pen,
             pen.tgl_dok_permohonan   AS tgl_dok_pen,
             pen.petugas              AS nama_pen_st,
             pen.nip                  AS nip_pen_st,
             pen.created_at           AS tgl_input_pen,
-
-            /* ================= PEMERIKSAAN ================= */
             p1a.id AS id_k37a, p1a.nomor AS nomor_k37a, p1a.tanggal AS tgl_k37a,
             p1a.created_at AS tgl_input_k37a, tp1a.nama AS nama_k37a, tp1a.nip AS nip_k37a,
 
@@ -186,8 +179,6 @@ class Caridokumen_model extends CI_Model {
 
             p310.id AS id_k310, p310.nomor AS nomor_k310, p310.tanggal AS tgl_k310,
             p310.created_at AS tgl_input_k310, tp310.nama AS nama_k310, tp310.nip AS nip_k310,
-
-            /* ================= TINDAKAN ================= */
             p53.id AS id_k53, p53.nomor AS nomor_k53, p53.tanggal AS tgl_k53,
             p53.created_at AS tgl_input_k53, tp53.nama AS nama_k53, tp53.nip AS nip_k53,
 
@@ -199,8 +190,6 @@ class Caridokumen_model extends CI_Model {
 
             p7.id AS id_p7, p7.nomor AS nomor_p7, p7.tanggal AS tgl_p7,
             p7.created_at AS tgl_input_p7, tp7.nama AS nama_p7, tp7.nip AS nip_p7,
-
-            /* ================= PEMBEBASAN ================= */
             p8.id AS id_p8,
             p8.nomor AS nomor_p8,
             p8.tanggal AS tgl_p8,
@@ -214,13 +203,9 @@ class Caridokumen_model extends CI_Model {
             dok.kode_dok
 
         FROM ptk p
-
-        /* SERAH TERIMA */
         LEFT JOIN ba_penyerahan_mp st ON st.ptk_id = p.id
         LEFT JOIN master_pegawai tst ON tst.id = st.user_asal_id
         LEFT JOIN ptk pen ON pen.id = st.ptk_id_penerima
-
-        /* PEMERIKSAAN */
         LEFT JOIN pn_administrasi p1a ON p.id=p1a.ptk_id AND p1a.deleted_at='1970-01-01 08:00:00'
         LEFT JOIN master_pegawai tp1a ON tp1a.id=p1a.user_ttd_id
 
@@ -235,8 +220,6 @@ class Caridokumen_model extends CI_Model {
 
         LEFT JOIN pn_sp2mp p310 ON p.id=p310.ptk_id AND p310.deleted_at='1970-01-01 08:00:00'
         LEFT JOIN master_pegawai tp310 ON tp310.id=p310.user_ttd_id
-
-        /* TINDAKAN */
         LEFT JOIN pn_perlakuan p53 ON p.id=p53.ptk_id AND p53.deleted_at='1970-01-01 08:00:00'
         LEFT JOIN master_pegawai tp53 ON tp53.id=p53.user_ttd_id
 
@@ -248,8 +231,6 @@ class Caridokumen_model extends CI_Model {
 
         LEFT JOIN pn_pemusnahan p7 ON p.id=p7.ptk_id AND p7.deleted_at='1970-01-01 08:00:00'
         LEFT JOIN master_pegawai tp7 ON tp7.id=p7.user_ttd_id
-
-        /* PEMBEBASAN */
         LEFT JOIN {$tableP8} p8 ON p.id=p8.ptk_id
         LEFT JOIN master_pegawai tp8 ON tp8.id=p8.user_ttd_id
         LEFT JOIN master_dokumen_karantina dok ON dok.id=p8.dokumen_karantina_id
@@ -440,8 +421,6 @@ private function fetchSsmApi($nomor, $tssm_id)
 
         $api = $this->fetchSsmApi($history[0][$noKey], $tssm_id);
         if (!$api) continue;
-
-        /* === PERIZINAN === */
         if (!empty($api['data_izin'])) {
             foreach ($api['data_izin'] as $i) {
                 $izin[] = [
@@ -453,8 +432,6 @@ private function fetchSsmApi($nomor, $tssm_id)
                 ];
             }
         }
-
-        /* === QC (ambil sekali saja) === */
         if (!$qc && !empty($api['data_ssm'])) {
             foreach ($api['data_ssm'] as $q) {
                 $qc[] = [
@@ -686,8 +663,6 @@ public function buildResponSsmJson(array $history, $tssm_id)
         }
 
         foreach ($rows as &$row) {
-
-            // Gabung kondisi (busuk, rusak, mati)
             $kondisi = [];
             if ((int)$row['bus'] > 0) {
                 $kondisi[] = 'busuk ' . $row['bus'];
@@ -733,8 +708,6 @@ public function buildResponSsmJson(array $history, $tssm_id)
     if (empty($item['id_p8'])) {
         return '#';
     }
-
-    // kode dok bisa NULL
     $kodeDok = !empty($item['kode_dok'])
         ? str_replace(['.', '-'], '', $item['kode_dok'])
         : '';

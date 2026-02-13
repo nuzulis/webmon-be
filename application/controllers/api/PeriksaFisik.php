@@ -25,23 +25,26 @@ class PeriksaFisik extends MY_Controller
             'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', true),
+            'search'     => $this->input->get('search', TRUE),
+            'sort_by'    => $this->input->get('sort_by', TRUE),
+            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
         $page    = max((int) $this->input->get('page'), 1);
         $perPage = (int) ($this->input->get('per_page') ?? 10);
         $offset  = ($page - 1) * $perPage;
-        $rows  = $this->PeriksaFisik_model->getList($filters, $perPage, $offset);
+        $ids   = $this->PeriksaFisik_model->getIds($filters, $perPage, $offset);
+        $data  = $this->PeriksaFisik_model->getByIds($ids);
         $total = $this->PeriksaFisik_model->countAll($filters);
 
         return $this->json([
             'success' => true,
-            'data'    => $rows,
+            'data'    => $data,
             'meta'    => [
                 'page'       => $page,
                 'per_page'   => $perPage,
                 'total'      => $total,
-                'total_page' => (int) ceil($total / max(1, $perPage))
+                'total_page' => (int) ceil($total / $perPage),
             ]
         ], 200);
     }
@@ -57,15 +60,13 @@ class PeriksaFisik extends MY_Controller
             'search'     => $this->input->get('search', true),
         ];
 
-        if (empty($filters['start_date'])) {
-            return $this->json_error('Export wajib menggunakan filter tanggal');
-        }
-
-        $rows = $this->PeriksaFisik_model->getExportByFilter($filters);
-
-        if (!$rows) {
-            return $this->json_error('Data tidak ditemukan');
-        }
+        $rows = $this->PeriksaFisik_model->getFullData($filters);
+        if (empty($rows)) {
+                    return $this->json([
+                        'success' => false,
+                        'message' => 'Data tidak ditemukan'
+                    ], 404);
+                }
 
         $headers = [
             'No', 'No. Permohonan', 'Tgl Permohonan', 'No. P1B (Fisik)', 'Tgl P1B',
@@ -107,16 +108,5 @@ class PeriksaFisik extends MY_Controller
             $exportData, 
             $reportInfo
         );
-    }
-
-    private function json_error(string $message, int $code = 400)
-    {
-        return $this->output
-            ->set_status_header($code)
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => false,
-                'message' => $message
-            ]));
     }
 }

@@ -27,6 +27,8 @@ class Transaksi extends MY_Controller
             return $this->json(401);
         }
         
+        $sortBy    = $this->input->get('sort_by', true) ?: 'tgl_dok';
+        $sortOrder = strtoupper($this->input->get('sort_order', true)) === 'ASC' ? 'ASC' : 'DESC';
 
         
        $filters = [
@@ -35,6 +37,9 @@ class Transaksi extends MY_Controller
             'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
             'start_date' => $this->input->get('start_date', TRUE) ?: date('Y-m-d'),
             'end_date'   => $this->input->get('end_date', TRUE) ?: date('Y-m-d'),
+            'search'     => $this->input->get('search', true),
+            'sort_by'    => $sortBy,
+            'sort_order' => $sortOrder,
         ];
 
         if (!empty($filters['karantina']) &&
@@ -45,14 +50,13 @@ class Transaksi extends MY_Controller
 
        
         $page    = max((int) $this->input->get('page'), 1);
-        $perPage = ((int) $this->input->get('per_page') === 10) ? 10 : 10;
+        $perPage = max((int) $this->input->get('per_page'), 10);
         $offset  = ($page - 1) * $perPage;
 
-        $offset  = ($page - 1) * $perPage;
         $ids = $this->Transaksi_model->getIds($filters, $perPage, $offset);
         $rows = empty($ids)
             ? []
-            : $this->Transaksi_model->getByIds($ids, $filters['karantina']);
+            : $this->Transaksi_model->getByIds($ids, $filters['karantina'], $sortBy, $sortOrder);
         $total = $this->Transaksi_model->countAll($filters);
 
         return $this->json([
@@ -101,29 +105,28 @@ class Transaksi extends MY_Controller
 
         $exportData[] = [
             $isIdem ? '' : $no++, 
-            $isIdem ? 'Idem' : $r['sumber'],
-            $isIdem ? 'Idem' : $r['no_aju'],
-            $r['tgl_aju'],
-            $isIdem ? 'Idem' : $r['no_dok'],
-            $r['tgl_dok'],
-            $r['upt'],
-            $r['satpel'],
-            $r['pengirim'],
-            $r['penerima'],
-            $r['asal_kota'],
-            $r['tujuan_kota'],
-            $r['tempat_periksa'],
-            $r['tgl_periksa'],
-            str_replace('<br>', "\n", $r['komoditas']),
-            str_replace('<br>', "\n", $r['hs']),
-            str_replace('<br>', "\n", $r['volume']),
-            str_replace('<br>', "\n", $r['satuan'])
+            $isIdem ? 'Idem' : ($r['sumber'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
+            $r['tgl_aju'] ?? '-',
+            $isIdem ? 'Idem' : ($r['no_dok'] ?? '-'),
+            $r['tgl_dok'] ?? '-',
+            $r['upt'] ?? '-',
+            $r['satpel'] ?? '-',
+            $r['pengirim'] ?? '-',
+            $r['penerima'] ?? '-',
+            $r['asal_kota'] ?? '-',
+            $r['tujuan_kota'] ?? '-',
+            $r['tempat_periksa'] ?? '-',
+            $r['tgl_periksa'] ?? '-',
+            str_replace('<br>', "\n", $r['komoditas'] ?? '-'),
+            str_replace('<br>', "\n", $r['hs'] ?? '-'),
+            str_replace('<br>', "\n", $r['volume'] ?? '-'),
+            str_replace('<br>', "\n", $r['satuan'] ?? '-')
         ];
 
         $lastAju = $r['no_aju'];
     }
 
-    /* 5. Download File */
     $title = "LAPORAN TRANSAKSI HARI INI (" . date('d F Y') . ") - " . ($filters['karantina'] ?: 'ALL');
     $reportInfo = $this->buildReportHeader($title, $filters);
 

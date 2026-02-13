@@ -18,36 +18,37 @@ class BatalPermohonan extends MY_Controller
     }
 
     public function index()
-    {
-        $filters = [
-            'upt_id'     => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', true),
-        ];
+{
+    $filters = [
+        'upt_id'     => $this->input->get('upt', TRUE),
+        'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+        'start_date' => $this->input->get('start_date', TRUE),
+        'end_date'   => $this->input->get('end_date', TRUE),
+        'search'     => $this->input->get('search', TRUE),
+        'sort_by'    => $this->input->get('sort_by', TRUE),
+        'sort_order' => $this->input->get('sort_order', TRUE),
+    ];
 
-        $this->applyScope($filters);
+    $this->applyScope($filters);
+    $page    = max((int) $this->input->get('page'), 1);
+    $perPage = 10;
+    $offset  = ($page - 1) * $perPage;
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = ((int) $this->input->get('per_page') === 10) ? 10 : 10;
-        $offset  = ($page - 1) * $perPage;
-
-        $ids   = $this->BatalPermohonan_model->getIds($filters, $perPage, $offset);
-        $rows  = $this->BatalPermohonan_model->getByIds($ids);
-        $total = $this->BatalPermohonan_model->countAll($filters);
-
-        return $this->json([
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
-        ], 200);
-    }
+    $ids   = $this->BatalPermohonan_model->getIds($filters, $perPage, $offset);
+    $rows  = $this->BatalPermohonan_model->getByIds($ids);
+    $total = $this->BatalPermohonan_model->countAll($filters);
+    
+    return $this->json([
+        'success' => true,
+        'data'    => $rows,
+        'meta'    => [
+            'page'       => $page,
+            'per_page'   => $perPage,
+            'total'      => $total,
+            'total_page' => (int) ceil($total / $perPage)
+        ]
+    ], 200);
+}
 
     public function export_excel()
 {

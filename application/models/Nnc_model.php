@@ -1,18 +1,174 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-require_once APPPATH . 'models/BaseModelStrict.php';
+require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Nnc_model extends BaseModelStrict
 {
-    private function applyFilters($f)
+    public function __construct()
     {
-        $this->db->where([
-            'p.is_verifikasi' => '1',
-            'p.is_batal'      => '0',
-            'p6.deleted_at'   => '1970-01-01 08:00:00',
-            'p6.dokumen_karantina_id' => '32',
-        ]);
+        parent::__construct();
+    }
+
+    public function getIds($f, $limit, $offset)
+    {
+        $this->db->select('p.id, MAX(p6.tanggal) as max_tanggal', false)
+            ->from('ptk p')
+            ->join('pn_penolakan p6', 'p.id = p6.ptk_id');
+        if (!empty($f['search'])) {
+            $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'left');
+        }
+
+        $this->applyManualFilter($f);
+
+        $sortMap = [
+            'no_aju'        => 'p.no_aju',
+            'tgl_nnc'       => 'max_tanggal',
+            'nomor_nnc'     => 'MAX(p6.nomor)',
+            'nama_pengirim' => 'p.nama_pengirim',
+        ];
+
+        $this->applySorting(
+            $f['sort_by'] ?? null,
+            $f['sort_order'] ?? 'DESC',
+            $sortMap,
+            ['max_tanggal', 'DESC']
+        );
+
+        $this->db->group_by('p.id');
+        $this->db->limit($limit, $offset);
+
+        $query = $this->db->get();
+        return $query ? array_column($query->result_array(), 'id') : [];
+    }
+
+    public function getByIds($ids)
+    {
+        if (empty($ids)) return [];
+        $quotedIds = implode(',', array_map([$this->db, 'escape'], $ids));
+        $this->db->select("
+            p.id, 
+            p.no_aju, 
+            p.no_dok_permohonan as no_dok, 
+            p.tgl_dok_permohonan, 
+            p.nama_pengirim, 
+            p.nama_penerima,
+            REPLACE(REPLACE(mu.nama, 'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT'), 
+                'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT') as upt_raw,
+            mu.nama_satpel,
+            
+            p6.tanggal AS tgl_penolakan, 
+            p6.nomor AS nomor_penolakan,
+            p6.information, 
+            p6.consignment as consignment_desc, 
+            p6.kepada,
+            
+            p6.specify1, p6.specify2,
+            p6.specify3, p6.specify4,
+            p6.specify5,
+
+            mp.nama AS petugas, 
+            mn1.nama AS asal, mn3.nama AS kota_asal, 
+            mn2.nama AS tujuan, mn4.nama AS kota_tujuan
+        ", false);
+
+        $this->db->from('ptk p')
+            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
+            ->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left')
+            ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
+            ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
+            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
+            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
+        $this->db->join("(
+            SELECT ptk_id, 
+                   GROUP_CONCAT(CONCAT('• ', nama_umum_tercetak, ' (', volumeP6, ' ', COALESCE(sat.nama, ''), ')') SEPARATOR '<br>') as komoditas
+            FROM ptk_komoditas pk
+            LEFT JOIN master_satuan sat ON pk.satuan_lain_id = sat.id
+            WHERE ptk_id IN ($quotedIds) AND pk.deleted_at = '1970-01-01 08:00:00'
+            GROUP BY ptk_id
+        ) k", 'p.id = k.ptk_id', 'left', false);
+
+        $this->db->select('k.komoditas');
+        
+        $this->db->where_in('p.id', $ids);
+        $this->db->order_by('p6.tanggal', 'DESC');
+
+        $rows = $this->db->get()->result_array();
+        return $this->formatNncData($rows);
+    }
+
+    public function countAll($f): int
+    {
+        $this->db->select('COUNT(DISTINCT p.id) as total');
+        $this->db->from('ptk p')
+            ->join('pn_penolakan p6', 'p.id = p6.ptk_id');
+
+        if (!empty($f['search'])) {
+             $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'left');
+        }
+
+        $this->applyManualFilter($f);
+        
+        $res = $this->db->get()->row();
+        return $res ? (int) $res->total : 0;
+    }
+
+    public function getFullData($f)
+    {
+        $ids = $this->getIds($f, 100000, 0);
+        if (empty($ids)) return [];
+        $this->db->select("
+            p.no_aju, 
+            p.nama_pengirim, p.nama_penerima,
+            REPLACE(REPLACE(mu.nama, 'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT'), 
+                'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT') as upt_raw,
+            mu.nama_satpel,
+            
+            p6.tanggal AS tgl_penolakan, 
+            p6.nomor AS nomor_penolakan,
+            p6.information, 
+            p6.consignment as consignment_desc, 
+            p6.kepada,
+            p6.specify1, p6.specify2, p6.specify3, p6.specify4, p6.specify5,
+
+            mp.nama AS petugas, 
+            mn1.nama AS asal, mn3.nama AS kota_asal, 
+            mn2.nama AS tujuan, mn4.nama AS kota_tujuan,
+
+            pkom.nama_umum_tercetak as komoditas,
+            pkom.kode_hs,
+            pkom.volumeP6 as volume,
+            ms.nama as satuan
+        ", false);
+
+        $this->db->from('ptk p')
+            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
+            ->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left')
+            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id') 
+            ->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left')
+            ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
+            ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
+            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
+            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
+
+        $this->db->where_in('p.id', $ids)
+                 ->where('pkom.deleted_at', '1970-01-01 08:00:00')
+                 ->where('p6.deleted_at', '1970-01-01 08:00:00')
+                 ->order_by('tgl_penolakan', 'DESC')
+                 ->order_by('p.no_aju', 'ASC');
+
+        $rows = $this->db->get()->result_array();
+        return $this->formatNncData($rows, true);
+    }
+
+    private function applyManualFilter($f)
+    {
+        $this->db->where('p.is_verifikasi', '1');
+        $this->db->where('p.is_batal', '0');
+        $this->db->where('p6.deleted_at', '1970-01-01 08:00:00');
+        $this->db->where('p6.dokumen_karantina_id', '32'); 
 
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua'])) {
             if (strlen($f['upt']) <= 4) {
@@ -22,168 +178,59 @@ class Nnc_model extends BaseModelStrict
             }
         }
 
-        if (!empty($f['karantina'])) $this->db->where('p.jenis_karantina', $f['karantina']);
-        if (!empty($f['lingkup'])) $this->db->where('p.jenis_permohonan', $f['lingkup']);
+        if (!empty($f['karantina'])) {
+             $this->db->where('p.jenis_karantina', strtoupper(substr($f['karantina'], -1)));
+        }
         
-        if (!empty($f['start_date'])) $this->db->where('DATE(p6.tanggal) >=', $f['start_date']);
-        if (!empty($f['end_date'])) $this->db->where('DATE(p6.tanggal) <=', $f['end_date']);
+        if (!empty($f['lingkup'])) {
+            $this->db->where('p.jenis_permohonan', $f['lingkup']);
+        }
 
+        if (!empty($f['start_date']) && !empty($f['end_date'])) {
+            $this->db->where('DATE(p6.tanggal) >=', $f['start_date']);
+            $this->db->where('DATE(p6.tanggal) <=', $f['end_date']);
+        }
 
         if (!empty($f['search'])) {
-            $q = $f['search'];
-            $this->db->group_start();
-                $this->db->like('p.no_aju', $q);
-                $this->db->or_like('p.no_dok_permohonan', $q);
-                $this->db->or_like('p6.nomor', $q);
-                $this->db->or_like('p.nama_pengirim', $q);
-                $this->db->or_like('p.nama_penerima', $q);
-                $this->db->or_like('pkom.nama_umum_tercetak', $q);
-            $this->db->group_end();
+            $this->applyGlobalSearch($f['search'], [
+                'p.no_aju',
+                'p.no_dok_permohonan',
+                'p6.nomor', 
+                'p.nama_pengirim',
+                'p.nama_penerima',
+                'pkom.nama_umum_tercetak' 
+            ]);
         }
     }
 
-    public function getIds($f, $limit, $offset)
+    private function formatNncData(array $rows, bool $isExcel = false): array 
     {
-        $this->db->select('p.id, MAX(p6.tanggal) AS last_tgl', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id');
+        $labels = [
+            1 => 'Prohibited goods: ',
+            2 => 'Problem with documentation (specify): ',
+            3 => 'The goods were infected/infested/contaminated with pests (specify): ',
+            4 => 'The goods do not comply with food safety (specify): ',
+            5 => 'The goods do not comply with other SPS (specify): '
+        ];
 
-        if (!empty($f['search'])) {
-            $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'left', FALSE);
+        foreach ($rows as &$r) {
+            $messages = [];
+            for ($i = 1; $i <= 5; $i++) {
+                $val = $r["specify$i"] ?? '';
+                if (!empty($val)) {
+                    if ($isExcel) {
+                        $messages[] = $labels[$i] . $val;
+                    } else {
+                        $messages[] = "<strong>" . $labels[$i] . "</strong> " . htmlspecialchars($val);
+                    }
+                }
+            }
+            $separator = $isExcel ? " | " : "<br>";
+            $r['nnc_reason'] = !empty($messages) ? implode($separator, $messages) : '-';
+            $r['nnc_reason_text'] = strip_tags(str_replace('<br>', ' | ', $r['nnc_reason']));
+            $r['consignment_full'] = "The " . ($r['consignment_desc'] ?? '') . " lot was: " . ($r['information'] ?? '');
+            $r['upt_full'] = ($r['upt_raw'] ?? '') . ' - ' . ($r['nama_satpel'] ?? '');
         }
-
-        $this->applyFilters($f);
-
-        $this->db->group_by('p.id')->order_by('last_tgl', 'DESC');
-
-        if ($limit < 5000) $this->db->limit($limit, $offset);
-
-        $res = $this->db->get()->result_array();
-        return array_column($res, 'id');
+        return $rows;
     }
-
-    public function countAll($f)
-    {
-        $this->db->select('COUNT(DISTINCT p.id) AS total', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id');
-        if (!empty($f['search'])) {
-            $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'left', FALSE);
-        }
-
-        $this->applyFilters($f);
-
-        $res = $this->db->get()->row();
-        return $res ? (int) $res->total : 0;
-    }
-    public function getByIds($ids, $karantina = 'T')
-{
-    if (empty($ids)) return [];
-
-    $this->db->select("
-        p.id, 
-        ANY_VALUE(p.tssm_id) as tssm_id, 
-        ANY_VALUE(p.no_aju) as no_aju, 
-        ANY_VALUE(p.no_dok_permohonan) as no_dok_permohonan, 
-        ANY_VALUE(p.tgl_dok_permohonan) as tgl_dok_permohonan, 
-        ANY_VALUE(p.kode_satpel) as kode_satpel,
-        ANY_VALUE(mu.nama_satpel) as nama_satpel, 
-        ANY_VALUE(p.upt_id) as upt_id,
-        ANY_VALUE(REPLACE(REPLACE(mt.nama, 'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT'), 
-                'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT')) AS upt,
-        ANY_VALUE(p6.tanggal) AS tgl_penolakan, 
-        ANY_VALUE(p6.nomor) AS nomor_penolakan,
-        ANY_VALUE(p6.information) as information, 
-        ANY_VALUE(p6.consignment) as consignment, 
-        ANY_VALUE(p6.consignment_detil) as consignment_detil, 
-        ANY_VALUE(p6.kepada) as kepada,
-        ANY_VALUE(COALESCE(p6.specify1, '')) AS specify1,
-        ANY_VALUE(COALESCE(p6.specify2, '')) AS specify2,
-        ANY_VALUE(COALESCE(p6.specify3, '')) AS specify3,
-        ANY_VALUE(COALESCE(p6.specify4, '')) AS specify4,
-        ANY_VALUE(COALESCE(p6.specify5, '')) AS specify5,
-        ANY_VALUE(mp.nama) AS petugas, 
-        ANY_VALUE(p6.dokumen_karantina_id) as dokumen_karantina_id,
-        ANY_VALUE(p.is_verifikasi) as is_verifikasi, 
-        ANY_VALUE(p.is_batal) as is_batal,
-        ANY_VALUE(p.nama_pengirim) as nama_pengirim, 
-        ANY_VALUE(p.nama_penerima) as nama_penerima,
-        ANY_VALUE(p.jenis_karantina) as jenis_karantina, 
-        ANY_VALUE(COALESCE(mn1.nama, '')) AS asal, 
-        ANY_VALUE(COALESCE(mn2.nama, '')) AS tujuan,
-        ANY_VALUE(COALESCE(mn3.nama, '')) AS kota_asal, 
-        ANY_VALUE(COALESCE(mn4.nama, '')) AS kota_tujuan,
-        GROUP_CONCAT(pkom.nama_umum_tercetak SEPARATOR '<br>') AS komoditas,
-        GROUP_CONCAT(pkom.kode_hs SEPARATOR '<br>') AS hs,
-        GROUP_CONCAT(pkom.volumeP6 SEPARATOR '<br>') AS volume,
-        GROUP_CONCAT(ms.nama SEPARATOR '<br>') AS satuan
-    ", false);
-
-    $this->db->from('ptk p');
-    $this->db->join('pn_penolakan p6', 'p.id = p6.ptk_id');
-    $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id');
-    $this->db->join('master_upt mu', 'p.kode_satpel = mu.id');
-    $this->db->join('master_upt mt', 'p.upt_id = mt.id');
-    $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'left', FALSE);
-    $this->db->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left');
-    $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
-    $this->db->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left');
-    $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
-    $this->db->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
-
-    $this->db->where_in('p.id', $ids);
-    $this->db->where('p6.dokumen_karantina_id', '32');
-    $this->db->where('p6.deleted_at', '1970-01-01 08:00:00');
-    $this->db->group_by('p.id, p6.id');
-
-    return $this->db->get()->result_array();
-}
-
-    public function getExportData($f)
-{
-    $ids = $this->getIds($f, 100000, 0);
-    if (empty($ids)) return [];
-
-    $tables = ['H' => 'komoditas_hewan', 'I' => 'komoditas_ikan', 'T' => 'komoditas_tumbuhan'];
-
-    $this->db->select("
-        p.id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
-        REPLACE(REPLACE(mt.nama, 'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT'), 
-                'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT') AS upt,
-        mu.nama_satpel,
-        p6.tanggal AS tgl_penolakan, p6.nomor AS nomor_penolakan,
-        p6.information, p6.consignment, p6.consignment_detil, p6.kepada,
-        p6.specify1, p6.specify2, p6.specify3, p6.specify4, p6.specify5,
-        mp.nama AS petugas,
-        p.nama_pengirim, p.nama_penerima,
-        COALESCE(mn1.nama, '') AS asal, 
-        COALESCE(mn2.nama, '') AS tujuan,
-        COALESCE(mn3.nama, '') AS kota_asal, 
-        COALESCE(mn4.nama, '') AS kota_tujuan,
-        pkom.nama_umum_tercetak as komoditas,
-        pkom.volumeP6 as volume,
-        ms.nama as satuan,
-        pkom.kode_hs
-    ", false);
-
-    $this->db->from('ptk p');
-    $this->db->join('pn_penolakan p6', 'p.id = p6.ptk_id');
-    $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id');
-    $this->db->join('master_upt mu', 'p.kode_satpel = mu.id');
-    $this->db->join('master_upt mt', 'p.upt_id = mt.id');
-    $this->db->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id AND pkom.deleted_at = "1970-01-01 08:00:00"', 'inner', FALSE);
-    $this->db->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left');
-    $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
-    $this->db->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left');
-    $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
-    $this->db->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
-
-    $this->db->where_in('p.id', $ids);
-    $this->db->where('p6.dokumen_karantina_id', '32');
-    $this->db->where('p6.deleted_at', '1970-01-01 08:00:00');
-    $this->db->order_by('p6.tanggal', 'DESC');
-    $this->db->order_by('p.no_aju', 'ASC');
-
-    return $this->db->get()->result_array();
-}
 }

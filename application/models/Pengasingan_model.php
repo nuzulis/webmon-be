@@ -1,71 +1,53 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-require_once APPPATH . 'models/BaseModelStrict.php';
+require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Pengasingan_model extends BaseModelStrict
 {
-    private function localFilter($f, $alias = 'p')
+    public function __construct()
     {
-        if (!empty($f['upt']) && !in_array($f['upt'], ['Semua', 'all', '1000'])) {
-            $this->db->where($alias . '.kode_satpel', $f['upt']);
-        }
-
-        if (!empty($f['karantina']) && !in_array($f['karantina'], ['Semua', 'all'])) {
-            $this->db->where($alias . '.jenis_karantina', $f['karantina']); 
-        }
-        if (!empty($f['lingkup']) && !in_array($f['lingkup'], ['Semua', 'all']))  {
-            $this->db->where($alias . '.jenis_permohonan', $f['lingkup']); 
-        }
+        parent::__construct();
     }
-  
+
     public function getIds($f, $limit, $offset)
     {
-        $this->db->reset_query();
-
-        $this->db->select('p.id')
+        $this->db->select('p.id, MAX(ps.tgl_singmat_awal) as max_tanggal', false)
             ->from('ptk p')
             ->join('pn_singmat ps', 'p.id = ps.ptk_id', 'inner')
-            ->where([
-                'p.is_verifikasi' => '1',
-                'p.is_batal'      => '0',
-            ]);
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
 
-        if (!empty($f['upt']) && !in_array($f['upt'], ['Semua','all','1000'])) {
-            $this->db->where('p.kode_satpel', $f['upt']);
-        }
+        $this->applyManualFilter($f);
 
-        if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', $f['karantina']);
-        }
+        $sortMap = [
+            'upt'        => 'MAX(mu.nama)',
+            'satpel'     => 'MAX(mu.nama_satpel)',
+            'tempat'     => 'MAX(ps.nama_tempat)',
+            'mulai'      => 'MAX(ps.tgl_singmat_awal)',
+            'selesai'    => 'MAX(ps.tgl_singmat_akhir)',
+            'tgl_ngasmat' => 'MAX(psd.tgl_pengamatan)',
+        ];
 
-        if (!empty($f['lingkup'])) {
-            $this->db->where('p.jenis_permohonan', $f['lingkup']);
-        }
-        if (!empty($f['start_date'])) {
-            $this->db->where('ps.tgl_singmat_awal >=', $f['start_date']);
+        if (isset($f['sort_by']) && $f['sort_by'] === 'tgl_ngasmat') {
+            $this->db->join('pn_singmat_detil psd', 'ps.id = psd.pn_singmat_id', 'left');
         }
 
-        if (!empty($f['end_date'])) {
-            $this->db->where('ps.tgl_singmat_awal <=', $f['end_date']);
-        }
+        $this->applySorting(
+            $f['sort_by'] ?? null,
+            $f['sort_order'] ?? 'DESC',
+            $sortMap,
+            ['MAX(ps.tgl_singmat_awal)', 'DESC']
+        );
 
         $this->db->group_by('p.id');
-        $this->db->order_by('p.created_at', 'DESC');
         $this->db->limit($limit, $offset);
 
-        $result = $this->db->get()->result_array();
-        
-        return array_column($result, 'id');
+        return array_column($this->db->get()->result_array(), 'id');
     }
 
     public function getByIds($ids, $is_export = false)
     {
-        if (empty($ids)) {
-            log_message('debug', 'getByIds: Empty IDs array');
-            return [];
-        }
-
+        if (empty($ids)) return [];
 
         if ($is_export) {
             $this->db->select("
@@ -127,14 +109,13 @@ class Pengasingan_model extends BaseModelStrict
 
         if (!$is_export) {
             $this->db->group_by('p.id');
-            $this->db->order_by('p.id', 'ASC'); 
+            $this->db->order_by('p.id', 'ASC');
         } else {
             $this->db->order_by('p.id', 'ASC');
             $this->db->order_by('psd.pengamatan_ke', 'ASC');
         }
 
-        $result = $this->db->get()->result_array();
-        return $result;
+        return $this->db->get()->result_array();
     }
 
     public function countAll($f)
@@ -142,61 +123,66 @@ class Pengasingan_model extends BaseModelStrict
         $this->db->select('COUNT(DISTINCT p.id) AS total', false)
             ->from('ptk p')
             ->join('pn_singmat ps', 'p.id = ps.ptk_id', 'inner')
-            ->where([
-                'p.is_verifikasi' => '1',
-                'p.is_batal'      => '0',
-            ]);
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
 
-        $this->localFilter($f, 'p');
-
-        if (!empty($f['start_date'])) {
-            $this->db->where('ps.tgl_singmat_awal >=', $f['start_date']);
-        }
-
-        if (!empty($f['end_date'])) {
-            $this->db->where('ps.tgl_singmat_awal <=', $f['end_date']);
-        }
+        $this->applyManualFilter($f);
 
         $row = $this->db->get()->row();
-        
         return $row ? (int) $row->total : 0;
     }
-    public function getAllIdsForExport($f)
-{
-    $this->db->reset_query();
 
-    $this->db->select('DISTINCT p.id', false)
-        ->from('ptk p')
-        ->join('pn_singmat ps', 'ps.ptk_id = p.id', 'inner')
-        ->where([
+    public function getFullData($f)
+    {
+        $ids = $this->getAllIdsForExport($f);
+        return $this->getByIds($ids, true);
+    }
+
+    private function applyManualFilter($f)
+    {
+        $this->db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
         ]);
-
-    if (!empty($f['upt']) && !in_array($f['upt'], ['Semua','all','1000'])) {
-        $this->db->where('p.kode_satpel', $f['upt']);
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['semua', 'all'])) {
+            if (strlen($f['upt']) > 2) {
+                $uptPrefix = substr($f['upt'], 0, 2);
+                $this->db->where('p.kode_satpel LIKE', $uptPrefix . '%');
+            } else {
+                $this->db->where('p.kode_satpel LIKE', $f['upt'] . '%');
+            }
+        }
+        if (!empty($f['karantina'])) {
+            $this->db->where('p.jenis_karantina', $f['karantina']);
+        }
+        if (!empty($f['lingkup'])) {
+            $this->db->where('p.jenis_permohonan', $f['lingkup']);
+        }
+        if (!empty($f['start_date'])) {
+            $this->db->where('ps.tgl_singmat_awal >=', $f['start_date'] . ' 00:00:00');
+        }
+        if (!empty($f['end_date'])) {
+            $this->db->where('ps.tgl_singmat_awal <=', $f['end_date'] . ' 23:59:59');
+        }
+        if (!empty($f['search'])) {
+            $this->applyGlobalSearch($f['search'], [
+                'mu.nama',
+                'mu.nama_satpel',
+                'ps.nama_tempat',
+                'ps.komoditas_cetak',
+                'ps.target',
+            ]);
+        }
     }
 
-    if (!empty($f['karantina'])) {
-        $this->db->where('p.jenis_karantina', $f['karantina']);
+    public function getAllIdsForExport($f)
+    {
+        $this->db->select('DISTINCT p.id', false)
+            ->from('ptk p')
+            ->join('pn_singmat ps', 'ps.ptk_id = p.id', 'inner')
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
+
+        $this->applyManualFilter($f);
+
+        return array_column($this->db->get()->result_array(), 'id');
     }
-
-    if (!empty($f['lingkup'])) {
-        $this->db->where('p.jenis_permohonan', $f['lingkup']);
-    }
-
-    if (!empty($f['start_date'])) {
-        $this->db->where('DATE(ps.tgl_singmat_awal) >=', $f['start_date']);
-    }
-
-    if (!empty($f['end_date'])) {
-        $this->db->where('DATE(ps.tgl_singmat_awal) <=', $f['end_date']);
-    }
-
-    return array_column(
-        $this->db->get()->result_array(),
-        'id'
-    );
-}
-
 }

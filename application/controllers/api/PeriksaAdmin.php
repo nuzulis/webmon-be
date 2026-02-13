@@ -2,72 +2,79 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * Permohonan / Pemeriksaan Administrasi
+ * @property CI_Input           $input
  * @property PeriksaAdmin_model $PeriksaAdmin_model
  * @property Excel_handler      $excel_handler
  */
 class PeriksaAdmin extends MY_Controller
 {
-   
     public function __construct()
     {
         parent::__construct();
         $this->load->model('PeriksaAdmin_model');
-        $this->load->helper('jwt');
         $this->load->library('excel_handler');
     }
 
     public function index()
     {
-        $filter = [
-        'upt'        => $this->input->get('upt'),
-        'karantina'  => $this->input->get('karantina'),
-        'lingkup'    => $this->input->get('lingkup', true), 
-        'start_date' => $this->input->get('start_date'),
-        'end_date'   => $this->input->get('end_date'),
-        'search'     => $this->input->get('search', true),
-    ];
+        $filters = [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => $this->input->get('karantina', TRUE),
+            'permohonan' => $this->input->get('permohonan', TRUE),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', TRUE),
+            'sort_by'    => $this->input->get('sort_by', TRUE),
+            'sort_order' => $this->input->get('sort_order', TRUE),
+        ];
 
-        $this->applyScope($filter);
-        
         $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) ($this->input->get('per_page') ?? 10);
+        $perPage = (int) $this->input->get('per_page') ?: 10;
         $offset  = ($page - 1) * $perPage;
-        $rows  = $this->PeriksaAdmin_model->getList($filter, $perPage, $offset);
-        $total = $this->PeriksaAdmin_model->countAll($filter);
+        $ids   = $this->PeriksaAdmin_model->getIds($filters, $perPage, $offset);
+        $data  = $this->PeriksaAdmin_model->getByIds($ids);
+        $total = $this->PeriksaAdmin_model->countAll($filters);
 
         return $this->json([
             'success' => true,
-            'data'    => $rows,
+            'data'    => $data,
             'meta'    => [
                 'page'       => $page,
                 'per_page'   => $perPage,
                 'total'      => $total,
-                'total_page' => (int) ceil($total / max(1, $perPage))
+                'total_page' => (int) ceil($total / $perPage),
             ]
-        ]);
+        ], 200);
     }
 
     public function export_excel()
     {
-         $filters = [
-        'upt'        => $this->input->get('upt', TRUE),
-        'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-        'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))), 
-        'start_date' => $this->input->get('start_date', TRUE),
-        'end_date'   => $this->input->get('end_date', TRUE),
-        'search'     => $this->input->get('search', true),
-    ];
+        $filters = [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => $this->input->get('karantina', TRUE),
+            'permohonan' => $this->input->get('permohonan', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', TRUE),
+        ];
+        $rows = $this->PeriksaAdmin_model->getFullData($filters);
 
-        $this->applyScope($filters);
-
-        $rows = $this->PeriksaAdmin_model->getExportByFilter($filters);
-
+        if (empty($rows)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
 
         $headers = [
-            'No', 'No. Permohonan', 'Tgl Permohonan', 'No. P1/P1A', 'Tgl P1/P1A',
-            'UPT / Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
-            'Komoditas', 'HS Code', 'Volume', 'Satuan'
+            'No.', 'No. Aju', 'No. Dokumen', 'Tgl Dokumen',
+            'No. P1/P1A', 'Tgl P1/P1A',
+            'UPT', 'Satpel',
+            'Pengirim', 'Penerima',
+            'Negara Asal', 'Kota Asal',
+            'Negara Tujuan', 'Kota Tujuan',
+            'Nama Tercetak', 'HS Code', 'Volume', 'Satuan'
         ];
 
         $exportData = [];
@@ -79,30 +86,37 @@ class PeriksaAdmin extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
+                $isIdem ? 'Idem' : ($r['no_aju'] ?? ''),
                 $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $isIdem ? '' : ($r['tgl_dok_permohonan'] ?? ''),
-                $isIdem ? '' : ($r['no_p1a'] ?? ''),
-                $isIdem ? '' : ($r['tgl_p1a'] ?? ''),
-                $isIdem ? '' : (($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? '')),
-                $isIdem ? '' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? '' : ($r['nama_penerima'] ?? ''),
-                $isIdem ? '' : (($r['asal'] ?? '') . ' - ' . ($r['kota_asal'] ?? '')),
-                $isIdem ? '' : (($r['tujuan'] ?? '') . ' - ' . ($r['kota_tujuan'] ?? '')),
-                $r['tercetak'] ?? '-',
-                $r['hs'] ?? '-',
-                is_numeric($r['volume']) ? number_format($r['volume'], 3, ",", ".") : ($r['volume'] ?? '0'),
-                $r['satuan'] ?? '-'
+                $isIdem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? ''),
+                $isIdem ? 'Idem' : ($r['no_p1a'] ?? ''),
+                $isIdem ? 'Idem' : ($r['tgl_p1a'] ?? ''),
+                $isIdem ? 'Idem' : ($r['upt'] ?? ''),
+                $isIdem ? 'Idem' : ($r['nama_satpel'] ?? ''),
+                $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
+                $isIdem ? 'Idem' : ($r['nama_penerima'] ?? ''),
+                $isIdem ? 'Idem' : ($r['asal'] ?? ''),
+                $isIdem ? 'Idem' : ($r['kota_asal'] ?? ''),
+                $isIdem ? 'Idem' : ($r['tujuan'] ?? ''),
+                $isIdem ? 'Idem' : ($r['kota_tujuan'] ?? ''),
+                $r['tercetak'] ?? '',
+                $r['hs'] ?? '',
+                $r['volume'] ?? '',
+                $r['satuan'] ?? ''
             ];
+
             $lastId = $r['id'];
         }
 
-        $title = "LAPORAN PEMERIKSAAN ADMINISTRASI (" . strtoupper($filters['karantina'] ?? 'ALL') . ")";
-        $reportInfo = $this->buildReportHeader($title, $filters);
+        $title = "LAPORAN PEMERIKSAAN ADMINISTRASI";
+        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+
+        $this->logActivity("EXPORT EXCEL: Pemeriksaan Administrasi");
 
         return $this->excel_handler->download(
-            "Laporan_PeriksaAdmin_" . date('Ymd'), 
-            $headers, 
-            $exportData, 
+            "Laporan_Periksa_Admin_" . date('Ymd'),
+            $headers,
+            $exportData,
             $reportInfo
         );
     }

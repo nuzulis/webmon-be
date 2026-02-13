@@ -1,30 +1,74 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Ecert_model extends CI_Model
+require_once APPPATH . 'core/BaseModelStrict.php';
+
+class Ecert_model extends BaseModelStrict
 {
     private string $apiUrl = 'https://api3.karantinaindonesia.go.id/ecert/certin';
-
     private string $authHeader = 'Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm';
 
-    public function fetch(array $f): array
+    public function __construct()
     {
-        if (empty($f['karantina']) || empty($f['start_date']) || empty($f['end_date'])) {
-            return [
-                'success' => false,
-                'message' => 'Parameter wajib belum lengkap'
-            ];
+        parent::__construct();
+    }
+
+    public function getIds($filter, $limit, $offset)
+    {
+        $allData = $this->fetchFromApi($filter);
+        if (empty($allData)) return [];
+
+        if (!empty($filter['search'])) {
+            $allData = $this->filterBySearch($allData, $filter['search']);
+        }
+        $allData = $this->sortData($allData, $filter['sort_by'] ?? 'tgl_cert', $filter['sort_order'] ?? 'DESC');
+        $total = count($allData);
+        $paginatedData = array_slice($allData, $offset, $limit);
+        $this->session->set_userdata('ecert_temp_data', $paginatedData);
+        $this->session->set_userdata('ecert_total', $total);
+        return array_keys($paginatedData);
+    }
+
+    public function getByIds($ids)
+    {
+        $cachedData = $this->session->userdata('ecert_temp_data');
+        if (!$cachedData) return [];
+
+        return array_values($cachedData);
+    }
+
+    public function countAll($filter)
+    {
+        return (int) ($this->session->userdata('ecert_total') ?: 0);
+    }
+
+    public function getFullData($filter)
+    {
+        $allData = $this->fetchFromApi($filter);
+        if (empty($allData)) return [];
+
+        if (!empty($filter['search'])) {
+            $allData = $this->filterBySearch($allData, $filter['search']);
+        }
+
+        return $this->sortData($allData, 'tgl_cert', 'DESC');
+    }
+
+    private function fetchFromApi($filter)
+    {
+        if (empty($filter['karantina']) || empty($filter['start_date']) || empty($filter['end_date'])) {
+            return [];
         }
 
         $payload = [
-            'kar'    => $f['karantina'],
-            'dstart' => $f['start_date'],
-            'dend'   => $f['end_date'],
-            'negara' => $f['negara'] ?? ''
+            'kar'    => $filter['karantina'],
+            'dstart' => $filter['start_date'],
+            'dend'   => $filter['end_date'],
+            'negara' => $filter['negara'] ?? ''
         ];
 
-        if (!empty($f['upt']) && strlen($f['upt']) <= 2) {
-            $payload['upt'] = $f['upt'];
+        if (!empty($filter['upt']) && strtolower($filter['upt']) !== 'all' && strlen($filter['upt']) <= 2) {
+            $payload['upt'] = $filter['upt'];
         }
 
         $ch = curl_init($this->apiUrl);
@@ -44,10 +88,9 @@ class Ecert_model extends CI_Model
         $response = curl_exec($ch);
 
         if ($response === false) {
-            return [
-                'success' => false,
-                'message' => curl_error($ch)
-            ];
+            log_message('error', 'E-Cert API Error: ' . curl_error($ch));
+            curl_close($ch);
+            return [];
         }
 
         curl_close($ch);
@@ -56,15 +99,42 @@ class Ecert_model extends CI_Model
         $data = json_decode($response, true);
 
         if (!is_array($data)) {
-            return [
-                'success' => false,
-                'message' => 'Gagal decode JSON e-Cert'
-            ];
+            log_message('error', 'E-Cert JSON Decode Error');
+            return [];
         }
 
-        return [
-            'success' => true,
-            'data'    => $data
+        return $data;
+    }
+
+    private function filterBySearch($data, $search)
+    {
+        return array_filter($data, function($row) use ($search) {
+            $search = strtolower($search);
+            return (
+                stripos($row['no_cert'] ?? '', $search) !== false ||
+                stripos($row['komo_eng'] ?? '', $search) !== false ||
+                stripos($row['neg_asal'] ?? '', $search) !== false ||
+                stripos($row['tujuan'] ?? '', $search) !== false ||
+                stripos($row['port_tujuan'] ?? '', $search) !== false
+            );
+        });
+    }
+
+    private function sortData($data, $sortBy, $sortOrder)
+    {
+        $columnMap = [
+            'no_cert'     => 'no_cert',
+            'tgl_cert'    => 'tgl_cert',
+            'komoditas'   => 'komo_eng',
+            'negara_asal' => 'neg_asal',
+            'tujuan'      => 'tujuan',
         ];
+
+        $column = $columnMap[$sortBy] ?? 'tgl_cert';
+        $order = strtoupper($sortOrder) === 'ASC' ? SORT_ASC : SORT_DESC;
+        $sortValues = array_column($data, $column);
+        array_multisort($sortValues, $order, SORT_NATURAL | SORT_FLAG_CASE, $data);
+
+        return $data;
     }
 }
