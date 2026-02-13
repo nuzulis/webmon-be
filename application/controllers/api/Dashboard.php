@@ -107,6 +107,21 @@ class Dashboard extends MY_Controller
         ]);
     }
 
+    public function pnbp_potensi() 
+{
+    $uptId = $this->input->get('upt_id');
+    $year  = $this->input->get('year') ?? date('Y');
+    $month = $this->input->get('month') ?? date('m');
+
+    $result = $this->Dashboard_model->get_potensi_simponi($uptId, $year, $month);
+
+    // Jika Anda menggunakan MY_Controller yang punya fungsi jsonRes
+    return $this->jsonRes(200, $result);
+
+    // Atau jika menggunakan json standar:
+    // return $this->json($result);
+}
+
     public function top_komoditi()
     {
         $jenis = strtoupper($this->input->get('lingkup', true));

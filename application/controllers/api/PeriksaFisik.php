@@ -22,13 +22,13 @@ class PeriksaFisik extends MY_Controller
         $filters = [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+            'permohonan' => strtoupper(trim($this->input->get('lingkup', TRUE) ?: $this->input->get('permohonan', TRUE))),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
             'search'     => $this->input->get('search', TRUE),
             'sort_by'    => $this->input->get('sort_by', TRUE),
             'sort_order' => $this->input->get('sort_order', TRUE),
-        ];
+    ];
 
         $page    = max((int) $this->input->get('page'), 1);
         $perPage = (int) ($this->input->get('per_page') ?? 10);
@@ -69,10 +69,10 @@ class PeriksaFisik extends MY_Controller
                 }
 
         $headers = [
-            'No', 'No. Permohonan', 'Tgl Permohonan', 'No. P1B (Fisik)', 'Tgl P1B',
-            'UPT / Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
-            'Komoditas', 'Volume', 'Satuan'
-        ];
+        'No.', 'No. Aju', 'No. Dokumen', 'Tgl Dokumen', 'No. P1B', 'Tgl P1B',
+        'UPT', 'Satpel', 'Pengirim', 'Penerima', 'Asal (Negara - Kota)', 'Tujuan (Negara - Kota)',
+        'Komoditas', 'HS Code', 'Volume', 'Satuan'
+    ];
 
         $exportData = [];
         $no = 1;
@@ -80,24 +80,30 @@ class PeriksaFisik extends MY_Controller
 
         foreach ($rows as $r) {
             $isIdem = ($r['id'] === $lastId);
+            $asalFull = trim(($r['asal'] ?? '') . ' - ' . ($r['kota_asal'] ?? ''), ' -');
+        $tujuanFull = trim(($r['tujuan'] ?? '') . ' - ' . ($r['kota_tujuan'] ?? ''), ' -');
 
-            $exportData[] = [
-                $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $isIdem ? '' : ($r['tgl_dok_permohonan'] ?? ''),
-                $isIdem ? '' : ($r['no_p1b'] ?? ''),
-                $isIdem ? '' : ($r['tgl_p1b'] ?? ''),
-                $isIdem ? '' : ($r['upt'] . ' - ' . ($r['nama_satpel'] ?? '')),
-                $isIdem ? '' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? '' : ($r['nama_penerima'] ?? ''),
-                $isIdem ? '' : ($r['asal'] ?? ''),
-                $isIdem ? '' : ($r['tujuan'] ?? ''),
-                $r['nama_umum_tercetak'] ?? '-',
-                is_numeric($r['volume']) ? number_format($r['volume'], 3, ",", ".") : ($r['volume'] ?? '0'),
-                $r['satuan'] ?? '-'
-            ];
-            $lastId = $r['id'];
-        }
+        $exportData[] = [
+            $isIdem ? '' : $no++,
+            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['no_p1b'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tgl_p1b'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_satpel'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_penerima'] ?? '-'),
+            $isIdem ? 'Idem' : ($asalFull ?: '-'),
+            $isIdem ? 'Idem' : ($tujuanFull ?: '-'),
+            str_replace('<br>', "\n", $r['nama_umum_tercetak'] ?? '-'),
+            str_replace('<br>', "\n", $r['hs'] ?? '-'),
+            str_replace('<br>', "\n", $r['volume'] ?? '-'),
+            str_replace('<br>', "\n", $r['satuan'] ?? '-')
+        ];
+
+        $lastId = $r['id'];
+    }
 
         $title = "LAPORAN PEMERIKSAAN FISIK & KESEHATAN (" . ($filters['karantina'] ?: 'ALL') . ")";
         $reportInfo = $this->buildReportHeader($title, $filters);

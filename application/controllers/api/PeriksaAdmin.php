@@ -67,47 +67,42 @@ class PeriksaAdmin extends MY_Controller
             ], 404);
         }
 
-        $headers = [
-            'No.', 'No. Aju', 'No. Dokumen', 'Tgl Dokumen',
-            'No. P1/P1A', 'Tgl P1/P1A',
-            'UPT', 'Satpel',
-            'Pengirim', 'Penerima',
-            'Negara Asal', 'Kota Asal',
-            'Negara Tujuan', 'Kota Tujuan',
-            'Nama Tercetak', 'HS Code', 'Volume', 'Satuan'
+       $headers = [
+        'No.', 'No. Aju', 'No. Dokumen', 'Tgl P1A', 'No. P1A',
+        'UPT', 'Satpel', 'Pengirim', 'Penerima', 
+        'Asal (Negara - Kota)', 'Tujuan (Negara - Kota)',
+        'Komoditas', 'HS Code', 'Volume', 'Satuan'
+    ];
+
+    $exportData = [];
+    $no = 1;
+    $lastId = null;
+
+    foreach ($rows as $r) {
+        $isIdem = ($r['id'] === $lastId);
+        $asalFull = trim(($r['asal'] ?? '') . ' - ' . ($r['kota_asal'] ?? ''), ' -');
+        $tujuanFull = trim(($r['tujuan'] ?? '') . ' - ' . ($r['kota_tujuan'] ?? ''), ' -');
+
+        $exportData[] = [
+            $isIdem ? '' : $no++,
+            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tgl_p1a'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['no_p1a'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_satpel'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['nama_penerima'] ?? '-'),
+            $isIdem ? 'Idem' : ($asalFull ?: '-'),
+            $isIdem ? 'Idem' : ($tujuanFull ?: '-'),
+            str_replace('<br>', "\n", $r['tercetak'] ?? '-'),
+            str_replace('<br>', "\n", $r['hs'] ?? '-'),
+            str_replace('<br>', "\n", $r['volume'] ?? '-'),
+            str_replace('<br>', "\n", $r['satuan'] ?? '-')
         ];
 
-        $exportData = [];
-        $no = 1;
-        $lastId = null;
-
-        foreach ($rows as $r) {
-            $isIdem = ($r['id'] === $lastId);
-
-            $exportData[] = [
-                $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['no_aju'] ?? ''),
-                $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['no_p1a'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_p1a'] ?? ''),
-                $isIdem ? 'Idem' : ($r['upt'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_satpel'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_penerima'] ?? ''),
-                $isIdem ? 'Idem' : ($r['asal'] ?? ''),
-                $isIdem ? 'Idem' : ($r['kota_asal'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tujuan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['kota_tujuan'] ?? ''),
-                $r['tercetak'] ?? '',
-                $r['hs'] ?? '',
-                $r['volume'] ?? '',
-                $r['satuan'] ?? ''
-            ];
-
-            $lastId = $r['id'];
-        }
-
+        $lastId = $r['id'];
+    }
         $title = "LAPORAN PEMERIKSAAN ADMINISTRASI";
         $reportInfo = $this->buildReportHeader($title, $filters, $rows);
 

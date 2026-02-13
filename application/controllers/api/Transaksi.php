@@ -74,7 +74,6 @@ class Transaksi extends MY_Controller
     public function export_excel()
 {
     $today = date('Y-m-d');
-    
     $rawKarantina = strtoupper(trim($this->input->get('karantina', TRUE)));
     $karantina = (strlen($rawKarantina) > 1) ? substr($rawKarantina, -1) : $rawKarantina;
 
@@ -82,55 +81,65 @@ class Transaksi extends MY_Controller
         'upt'        => $this->input->get('upt', TRUE),
         'karantina'  => $karantina,
         'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
-        'start_date' => $today . ' 00:00:00',
-        'end_date'   => $today . ' 23:59:59'
+        'start_date' => $this->input->get('start_date', TRUE) ?: $today,
+        'end_date'   => $this->input->get('end_date', TRUE) ?: $today,
+        'search'     => $this->input->get('search', TRUE)
     ];
-   $ids = $this->Transaksi_model->getIds($filters, 5000, 0);
-    $rows = $ids ? $this->Transaksi_model->getByIds($ids, $filters['karantina']) : [];
+    $ids = $this->Transaksi_model->getIds($filters, 10000, 0);
+    $rows = !empty($ids) ? $this->Transaksi_model->getByIds($ids, $filters['karantina']) : [];
 
-
+    if (empty($rows)) {
+        return $this->jsonRes(404, ['success' => false, 'message' => 'Data tidak ditemukan untuk diunduh']);
+    }
     $headers = [
-        'No', 'Sumber', 'No. Aju', 'Tgl Aju', 'No. Dokumen', 'Tgl Dokumen',
+        'No.', 'Sumber', 'No. Aju', 'Tgl Aju', 'No. Dokumen', 'Tgl Dokumen',
         'UPT', 'Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
         'Tempat Periksa', 'Tgl Periksa', 'Komoditas', 'HS Code', 'Volume', 'Satuan'
     ];
 
-    
     $exportData = [];
     $no = 1;
-    $lastAju = null;
+    $lastId = null;
 
     foreach ($rows as $r) {
-        $isIdem = ($r['no_aju'] === $lastAju);
+        $isIdem = ($r['id'] === $lastId);
 
         $exportData[] = [
             $isIdem ? '' : $no++, 
             $isIdem ? 'Idem' : ($r['sumber'] ?? '-'),
             $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
-            $r['tgl_aju'] ?? '-',
+            $isIdem ? 'Idem' : ($r['tgl_aju'] ?? '-'),
             $isIdem ? 'Idem' : ($r['no_dok'] ?? '-'),
-            $r['tgl_dok'] ?? '-',
-            $r['upt'] ?? '-',
-            $r['satpel'] ?? '-',
-            $r['pengirim'] ?? '-',
-            $r['penerima'] ?? '-',
-            $r['asal_kota'] ?? '-',
-            $r['tujuan_kota'] ?? '-',
-            $r['tempat_periksa'] ?? '-',
-            $r['tgl_periksa'] ?? '-',
+            $isIdem ? 'Idem' : ($r['tgl_dok'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['satpel'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['pengirim'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['penerima'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['asal_kota'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tujuan_kota'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tempat_periksa'] ?? '-'),
+            $isIdem ? 'Idem' : ($r['tgl_periksa'] ?? '-'),
             str_replace('<br>', "\n", $r['komoditas'] ?? '-'),
             str_replace('<br>', "\n", $r['hs'] ?? '-'),
             str_replace('<br>', "\n", $r['volume'] ?? '-'),
             str_replace('<br>', "\n", $r['satuan'] ?? '-')
         ];
 
-        $lastAju = $r['no_aju'];
+        $lastId = $r['id'];
     }
-
-    $title = "LAPORAN TRANSAKSI HARI INI (" . date('d F Y') . ") - " . ($filters['karantina'] ?: 'ALL');
+    $title = "LAPORAN TRANSAKSI" . 
+             ($filters['start_date'] == $filters['end_date'] 
+                ? " TANGGAL " . date('d/m/Y', strtotime($filters['start_date']))
+                : " PERIODE " . date('d/m/Y', strtotime($filters['start_date'])) . " - " . date('d/m/Y', strtotime($filters['end_date'])));
+    
     $reportInfo = $this->buildReportHeader($title, $filters);
 
-    return $this->excel_handler->download("Transaksi_Hari_Ini_" . date('Ymd'), $headers, $exportData, $reportInfo);
+    return $this->excel_handler->download(
+        "Laporan_Transaksi_" . date('Ymd_His'), 
+        $headers, 
+        $exportData, 
+        $reportInfo
+    );
 }
 
  
