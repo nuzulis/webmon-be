@@ -12,10 +12,10 @@ class Penugasan_model extends BaseModelStrict
 
     public function getIds($f, $limit, $offset)
     {
-        $this->db->select('h.id, MAX(h.tanggal) as max_tanggal', false)
-            ->from('ptk p')
+        $this->db->select('DISTINCT h.id, MAX(h.tanggal) as max_tanggal', false)
+            ->from('ptk_surtug_header h')
+            ->join('ptk p', 'h.ptk_id = p.id')
             ->join('master_upt mu', 'p.upt_id = mu.id')
-            ->join('ptk_surtug_header h', 'p.id = h.ptk_id')
             ->join('ptk_surtug_petugas pp', 'h.id = pp.ptk_surtug_header_id')
             ->join('ptk_surtug_penugasan pnp', 'pp.id = pnp.ptk_surtug_petugas_id')
             ->join('master_penugasan mpn', 'pnp.penugasan_id = mpn.id')
@@ -24,31 +24,20 @@ class Penugasan_model extends BaseModelStrict
 
         $this->applyManualFilter($f);
         $sortMap = [
-            'nomor_surtug'       => 'MAX(h.nomor)',
-            'tgl_surtug'         => 'MAX(h.tanggal)',
-            'no_dok_permohonan'  => 'MAX(p.no_dok_permohonan)',
-            'tgl_dok_permohonan' => 'MAX(p.tgl_dok_permohonan)',
-            'upt'                => 'MAX(mu.nama)',
-            'satpel'             => 'MAX(mu.nama_satpel)',
-            'nama_petugas'       => 'MAX(mp1.nama)',
-            'penandatangan'      => 'MAX(mp2.nama)',
-            'jenis_tugas'        => 'MAX(mpn.nama)',
+            'nomor_surtug' => 'h.nomor',
+            'tgl_surtug'   => 'h.tanggal',
         ];
 
-        $this->applySorting(
-            $f['sort_by'] ?? null,
-            $f['sort_order'] ?? 'DESC',
-            $sortMap,
-            ['MAX(h.tanggal)', 'DESC']
-        );
+        $this->applySorting($f['sort_by'] ?? null, $f['sort_order'] ?? 'DESC', $sortMap, ['h.tanggal', 'DESC']);
 
         $this->db->group_by('h.id');
         $this->db->limit($limit, $offset);
 
-        return array_column($this->db->get()->result_array(), 'id');
+        $res = $this->db->get()->result_array();
+        return array_column($res, 'id');
     }
 
-    public function getByIds($ids)
+        public function getByIds($ids)
     {
         if (empty($ids)) return [];
 
@@ -60,16 +49,18 @@ class Penugasan_model extends BaseModelStrict
             p.tgl_dok_permohonan,
             mu.nama AS upt, 
             mu.nama_satpel AS satpel,
-            mp1.nama AS nama_petugas, 
-            mp1.nip AS nip_petugas,
+            -- Gabungkan nama petugas dengan <br> agar rapi di UI
+            GROUP_CONCAT(DISTINCT mp1.nama SEPARATOR '<br>') AS nama_petugas, 
+            GROUP_CONCAT(DISTINCT mp1.nip SEPARATOR '<br>') AS nip_petugas,
             mp2.nama AS penandatangan, 
             mp2.nip AS nip_ttd,
-            mpn.nama AS jenis_tugas
+            -- Gabungkan jenis tugas jika ada lebih dari satu
+            GROUP_CONCAT(DISTINCT mpn.nama SEPARATOR ', ') AS jenis_tugas
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db->from('ptk_surtug_header h')
+            ->join('ptk p', 'h.ptk_id = p.id')
             ->join('master_upt mu', 'p.upt_id = mu.id')
-            ->join('ptk_surtug_header h', 'p.id = h.ptk_id')
             ->join('ptk_surtug_petugas pp', 'h.id = pp.ptk_surtug_header_id')
             ->join('ptk_surtug_penugasan pnp', 'pp.id = pnp.ptk_surtug_petugas_id')
             ->join('master_penugasan mpn', 'pnp.penugasan_id = mpn.id')
@@ -77,6 +68,7 @@ class Penugasan_model extends BaseModelStrict
             ->join('master_pegawai mp2', 'h.penanda_tangan_id = mp2.id');
 
         $this->db->where_in('h.id', $ids);
+        $this->db->group_by('h.id');
         $this->db->order_by('h.tanggal', 'DESC');
 
         return $this->db->get()->result_array();

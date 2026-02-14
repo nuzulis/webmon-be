@@ -90,9 +90,12 @@ class Caridokumen_model extends CI_Model {
             p.alasan_batal,
             p.alasan_penolakan,
             p.petugas,
-            p.updated_at AS jam_update_ptk
+            p.updated_at AS jam_update_ptk,
+            mu.nama AS nama_upt,
+            mu.nama_satpel
         ")
         ->from('ptk p')
+        ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
         ->join('master_jenis_media_pembawa mjk', 'p.jenis_media_pembawa_id = mjk.id', 'left')
         ->join('master_pelabuhan pel_muat', 'p.pelabuhan_muat_id = pel_muat.id', 'left')
         ->join('master_pelabuhan pel_bongkar', 'p.pelabuhan_bongkar_id = pel_bongkar.id', 'left')

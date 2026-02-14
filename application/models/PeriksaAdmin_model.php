@@ -10,7 +10,7 @@ class PeriksaAdmin_model extends BaseModelStrict
         parent::__construct();
     }
 
-    private function applyManualFilter($f)
+    private function applyManualFilter($f, $hasSearchJoins = false)
     {
         $this->db->where([
             'p.is_verifikasi' => '1',
@@ -25,10 +25,10 @@ class PeriksaAdmin_model extends BaseModelStrict
         }
 
         if (!empty($f['start_date'])) {
-            $this->db->where('DATE(p1a.tanggal) >=', $f['start_date']);
+            $this->db->where('p1a.tanggal >=', $f['start_date'] . ' 00:00:00');
         }
         if (!empty($f['end_date'])) {
-            $this->db->where('DATE(p1a.tanggal) <=', $f['end_date']);
+            $this->db->where('p1a.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
 
         if (!empty($f['karantina']) && !in_array(strtolower($f['karantina']), ['all', ''])) {
@@ -39,46 +39,45 @@ class PeriksaAdmin_model extends BaseModelStrict
         if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
             $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
-        
-        $this->db->where("NOT EXISTS (SELECT 1 FROM pn_fisik_kesehatan fisik WHERE fisik.ptk_id = p.id)", null, false);
+
+        $this->db->where('NOT EXISTS (SELECT 1 FROM pn_fisik_kesehatan fisik WHERE fisik.ptk_id = p.id)', null, false);
 
         if (!empty($f['search'])) {
-        $s = $this->db->escape_like_str($f['search']);
-        
-        $this->db->group_start();
-            $this->db->like('p.no_aju', $s);
-            $this->db->or_like('p.no_dok_permohonan', $s);
-            $this->db->or_like('p1a.nomor', $s);
-            $this->db->or_like('p.nama_pengirim', $s);
-            $this->db->or_like('p.nama_penerima', $s);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_upt mu WHERE mu.id = p.kode_satpel 
-                AND (mu.nama LIKE '%$s%' OR mu.nama_satpel LIKE '%$s%')
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM ptk_komoditas pk 
-                WHERE pk.ptk_id = p.id 
-                AND (pk.nama_umum_tercetak LIKE '%$s%' OR pk.kode_hs LIKE '%$s%')
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_negara mn WHERE mn.id = p.negara_asal_id AND mn.nama LIKE '%$s%'
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_kota_kab mk WHERE mk.id = p.kota_kab_asal_id AND mk.nama LIKE '%$s%'
-            )", null, false);
-
-            $this->db->group_end();
+            $searchColumns = [
+                'p.no_aju',
+                'p.no_dok_permohonan',
+                'p1a.nomor',
+                'p.nama_pengirim',
+                'p.nama_penerima',
+            ];
+            if ($hasSearchJoins) {
+                $searchColumns[] = 'mu.nama';
+                $searchColumns[] = 'mu.nama_satpel';
+                $searchColumns[] = 'pk.nama_umum_tercetak';
+                $searchColumns[] = 'pk.kode_hs';
+                $searchColumns[] = 'mn1.nama';
+                $searchColumns[] = 'mn3.nama';
+            }
+            $this->applyGlobalSearch($f['search'], $searchColumns);
         }
     }
 
     public function getIds($f, $limit, $offset)
     {
+        $hasSearch = !empty($f['search']);
         $this->db->select('p.id, MAX(p1a.tanggal) as tgl_urut', false)
             ->from('ptk p')
             ->join('pn_administrasi p1a', 'p.id = p1a.ptk_id', 'inner');
-        
-        $this->applyManualFilter($f);
-        
+
+        if ($hasSearch) {
+            $this->db->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
+            $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $hasSearch);
+
         $this->db->group_by('p.id');
         $this->db->order_by('tgl_urut', 'DESC');
         $this->db->limit($limit, $offset);
@@ -89,12 +88,20 @@ class PeriksaAdmin_model extends BaseModelStrict
 
     public function countAll($f)
     {
+        $hasSearch = !empty($f['search']);
         $this->db->select('COUNT(DISTINCT p.id) as total')->from('ptk p')
             ->join('pn_administrasi p1a', 'p.id = p1a.ptk_id', 'inner');
-        
-        $this->applyManualFilter($f);
-        $res = $this->db->get()->row();
-        return $res ? (int) $res->total : 0;
+
+        if ($hasSearch) {
+            $this->db->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
+            $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $hasSearch);
+        $res = $this->db->get();
+        return $res ? (int) ($res->row()->total ?? 0) : 0;
     }
 
     public function getByIds($ids)

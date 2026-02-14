@@ -26,8 +26,9 @@ class Pemusnahan_model extends BaseModelStrict
             ->join('ptk p', 'mus.ptk_id = p.id')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
 
-        $needBamJoin = !empty($f['search']) || ($f['sort_by'] === 'petugas');
-        
+        $hasSearch = !empty($f['search']);
+        $needBamJoin = $hasSearch || ($f['sort_by'] === 'petugas');
+
         if ($needBamJoin) {
             $this->db->join(
                 'pn_pemusnahan bam',
@@ -36,7 +37,15 @@ class Pemusnahan_model extends BaseModelStrict
             );
         }
 
-        $this->applyManualFilter($f, $needBamJoin);
+        if ($hasSearch) {
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $kar = strtoupper($f['karantina'] ?? 'H');
+            $kom = $kar === 'H' ? 'komoditas_hewan'
+                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $needBamJoin, $hasSearch);
 
         $sortMap = [
             'nomor'       => 'MAX(mus.nomor)',
@@ -66,8 +75,9 @@ class Pemusnahan_model extends BaseModelStrict
             ->join('ptk p', 'mus.ptk_id = p.id')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
 
-        $needBamJoin = !empty($f['search']);
-        
+        $hasSearch = !empty($f['search']);
+        $needBamJoin = $hasSearch;
+
         if ($needBamJoin) {
             $this->db->join(
                 'pn_pemusnahan bam',
@@ -76,7 +86,15 @@ class Pemusnahan_model extends BaseModelStrict
             );
         }
 
-        $this->applyManualFilter($f, $needBamJoin);
+        if ($hasSearch) {
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $kar = strtoupper($f['karantina'] ?? 'H');
+            $kom = $kar === 'H' ? 'komoditas_hewan'
+                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $needBamJoin, $hasSearch);
 
         return (int)($this->db->get()->row()->total ?? 0);
     }
@@ -202,8 +220,9 @@ class Pemusnahan_model extends BaseModelStrict
             'pkom.deleted_at' => '1970-01-01 08:00:00'
         ]);
 
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
-            $this->db->like('p.kode_satpel', substr($f['upt'], 0, 2), 'after');
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
+            $this->db->where($field, $f['upt']);
         }
 
         if (!empty($f['karantina'])) {
@@ -228,22 +247,25 @@ class Pemusnahan_model extends BaseModelStrict
         return $rows;
     }
 
-    private function applyManualFilter($f, $hasBamJoin = true)
+    private function applyManualFilter($f, $hasBamJoin = true, $hasKomoditasJoin = false)
     {
         $this->db->where([
             'mus.deleted_at' => '1970-01-01 08:00:00',
             'mus.dokumen_karantina_id' => '35',
             'p.is_batal' => '0'
         ]);
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
-            $this->db->like('p.kode_satpel', substr($f['upt'], 0, 2), 'after');
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
+            $this->db->where($field, $f['upt']);
         }
         if (!empty($f['karantina'])) {
             $this->db->where('p.jenis_karantina', $f['karantina']);
         }
-        if (!empty($f['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $f['permohonan']);
-        }
+        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
+
+    if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
+        $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+    }
         if (!empty($f['start_date'])) {
             $this->db->where('mus.tanggal >=', $f['start_date'] . ' 00:00:00');
         }
@@ -261,6 +283,9 @@ class Pemusnahan_model extends BaseModelStrict
                 $searchColumns[] = 'bam.petugas_pelaksana';
                 $searchColumns[] = 'bam.tempat_musnah';
                 $searchColumns[] = 'bam.metode_musnah';
+            }
+            if ($hasKomoditasJoin) {
+                $searchColumns[] = 'k.nama';
             }
 
             $this->applyGlobalSearch($f['search'], $searchColumns);

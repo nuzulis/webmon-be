@@ -21,7 +21,7 @@ class Permohonan extends MY_Controller
         $filters = [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
             'search'     => $this->input->get('search', TRUE),
@@ -151,7 +151,7 @@ class Permohonan extends MY_Controller
         return [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
             'search'     => $this->input->get('search', TRUE),

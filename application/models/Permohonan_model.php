@@ -197,8 +197,10 @@ class Permohonan_model extends BaseModelStrict
         if (!empty($f['karantina'])) {
             $this->db->where('p.jenis_karantina', strtoupper($f['karantina']));
         }
-        if (!empty($f['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $f['permohonan']);
+        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
+
+        if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
+            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
             $this->db->where("DATE(p.tgl_dok_permohonan) BETWEEN '{$f['start_date']}' AND '{$f['end_date']}'");

@@ -74,9 +74,9 @@ class Nnc extends MY_Controller
         $no = 0;
         $lastAju = null;
 
-        foreach ($rows as $r) {
-            $isSame = ($r['no_aju'] === $lastAju);
-            if (!$isSame) { $no++; }
+foreach ($rows as $r) {
+    $isSame = ($r['no_aju'] === $lastAju);
+    if (!$isSame) { $no++; }
 
             $exportData[] = [
                 $isSame ? '' : $no,
@@ -86,13 +86,13 @@ class Nnc extends MY_Controller
                 $isSame ? 'Idem' : ($r['kepada'] ?? '-'),
                 $isSame ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
                 $isSame ? 'Idem' : ($r['nama_penerima'] ?? '-'),
-                $isSame ? 'Idem' : ($r['asal'] . ' - ' . $r['kota_asal']),
-                $isSame ? 'Idem' : ($r['tujuan'] . ' - ' . $r['kota_tujuan']),
+                $isSame ? 'Idem' : (($r['asal'] ?? '-') . ' - ' . ($r['kota_asal'] ?? '-')),
+                $isSame ? 'Idem' : (($r['tujuan'] ?? '-') . ' - ' . ($r['kota_tujuan'] ?? '-')),
                 $r['komoditas'] ?? '-',
                 $r['kode_hs'] ?? '-',
                 $r['volume'] ?? 0,
                 $r['satuan'] ?? '-',
-                $isSame ? 'Idem' : ($r['nnc_reason_text'] ?? '-'),
+                $isSame ? 'Idem' : ($r['nnc_reason'] ?? '-'),
                 $isSame ? 'Idem' : ($r['petugas'] ?? '-')
             ];
 

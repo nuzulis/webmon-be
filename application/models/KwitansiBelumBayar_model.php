@@ -199,7 +199,7 @@ class KwitansiBelumBayar_model extends BaseModelStrict
                 'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
             ],
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT        => 60 
+            CURLOPT_TIMEOUT        => 160 
         ]);
         
         $res = curl_exec($ch);

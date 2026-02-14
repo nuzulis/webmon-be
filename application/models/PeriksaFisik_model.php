@@ -17,20 +17,19 @@ class PeriksaFisik_model extends BaseModelStrict
         return 'ki';
     }
 
-    private function _join_pelepasan($suffix) {
-        $pelepasanTable = "pn_pelepasan_" . $suffix;
-        $this->db->join("$pelepasanTable p8", 'p.id = p8.ptk_id', 'left');
-    }
-
-    private function applyManualFilter($f)
+    private function applyManualFilter($f, $hasSearchJoins = false)
     {
+        $suffix = $this->getTableSuffix($f['karantina'] ?? '');
+        $pelepasanTable = "pn_pelepasan_" . $suffix;
+
         $this->db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
             'p1b.deleted_at'  => '1970-01-01 08:00:00',
             'p.upt_id !='     => '1000',
-            'p8.id'           => NULL 
         ]);
+
+        $this->db->where("NOT EXISTS (SELECT 1 FROM $pelepasanTable p8 WHERE p8.ptk_id = p.id)", null, false);
 
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'])) {
             $field = (strlen($f['upt']) <= 4) ? "p.upt_id" : "p.kode_satpel";
@@ -47,58 +46,55 @@ class PeriksaFisik_model extends BaseModelStrict
         }
 
         if (!empty($f['start_date'])) {
-            $this->db->where('DATE(p1b.tanggal) >=', $f['start_date']);
+            $this->db->where('p1b.tanggal >=', $f['start_date'] . ' 00:00:00');
         }
         if (!empty($f['end_date'])) {
-            $this->db->where('DATE(p1b.tanggal) <=', $f['end_date']);
+            $this->db->where('p1b.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
 
         $this->db->where("EXISTS (
-            SELECT 1 FROM ptk_komoditas pk 
-            WHERE pk.ptk_id = p.id 
-            AND pk.volumeP1 IS NOT NULL 
-            AND pk.volumeP3 IS NULL AND pk.volumeP4 IS NULL 
-            AND pk.volumeP5 IS NULL AND pk.volumeP6 IS NULL 
-            AND pk.volumeP7 IS NULL AND pk.volumeP8 IS NULL
+            SELECT 1 FROM ptk_komoditas pk_vol WHERE pk_vol.ptk_id = p.id
+            AND pk_vol.volumeP1 IS NOT NULL
+            AND pk_vol.volumeP3 IS NULL AND pk_vol.volumeP4 IS NULL
+            AND pk_vol.volumeP5 IS NULL AND pk_vol.volumeP6 IS NULL
+            AND pk_vol.volumeP7 IS NULL AND pk_vol.volumeP8 IS NULL
         )", null, false);
 
         if (!empty($f['search'])) {
-            $s = $this->db->escape_like_str($f['search']);
-            $this->db->group_start();
-            $this->db->like('p.no_aju', $s);
-            $this->db->or_like('p.no_dok_permohonan', $s);
-            $this->db->or_like('p1b.nomor', $s);
-            $this->db->or_like('p.nama_pengirim', $s);
-            $this->db->or_like('p.nama_penerima', $s);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_upt mu WHERE mu.id = p.kode_satpel 
-                AND (mu.nama LIKE '%$s%' OR mu.nama_satpel LIKE '%$s%')
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM ptk_komoditas pk 
-                WHERE pk.ptk_id = p.id 
-                AND (pk.nama_umum_tercetak LIKE '%$s%' OR pk.kode_hs LIKE '%$s%')
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_negara mn WHERE mn.id = p.negara_asal_id AND mn.nama LIKE '%$s%'
-            )", null, false);
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_kota_kab mk WHERE mk.id = p.kota_kab_asal_id AND mk.nama LIKE '%$s%'
-            )", null, false);
-
-            $this->db->group_end();
+            $searchColumns = [
+                'p.no_aju',
+                'p.no_dok_permohonan',
+                'p1b.nomor',
+                'p.nama_pengirim',
+                'p.nama_penerima',
+            ];
+            if ($hasSearchJoins) {
+                $searchColumns[] = 'mu.nama';
+                $searchColumns[] = 'mu.nama_satpel';
+                $searchColumns[] = 'pk.nama_umum_tercetak';
+                $searchColumns[] = 'pk.kode_hs';
+                $searchColumns[] = 'mn1.nama';
+                $searchColumns[] = 'mn3.nama';
+            }
+            $this->applyGlobalSearch($f['search'], $searchColumns);
         }
     }
 
     public function getIds($f, $limit, $offset)
     {
-        $suffix = $this->getTableSuffix($f['karantina'] ?? '');
+        $hasSearch = !empty($f['search']);
         $this->db->select('p.id, MAX(p1b.tanggal) as max_tanggal', false)
             ->from('ptk p')
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'inner');
-        
-        $this->_join_pelepasan($suffix);
-        $this->applyManualFilter($f, $suffix);
+
+        if ($hasSearch) {
+            $this->db->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
+            $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $hasSearch);
 
         $this->db->group_by('p.id');
         $this->db->order_by('max_tanggal', 'DESC');
@@ -110,16 +106,22 @@ class PeriksaFisik_model extends BaseModelStrict
 
     public function countAll($f)
     {
-        $suffix = $this->getTableSuffix($f['karantina'] ?? '');
+        $hasSearch = !empty($f['search']);
         $this->db->select('COUNT(DISTINCT p.id) as total')
             ->from('ptk p')
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'inner');
 
-        $this->_join_pelepasan($suffix);
-        $this->applyManualFilter($f, $suffix);
+        if ($hasSearch) {
+            $this->db->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $this->db->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left');
+            $this->db->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left');
+        }
 
-        $res = $this->db->get()->row();
-        return $res ? (int) $res->total : 0;
+        $this->applyManualFilter($f, $hasSearch);
+
+        $res = $this->db->get();
+        return $res ? (int) ($res->row()->total ?? 0) : 0;
     }
 
     public function getByIds($ids)

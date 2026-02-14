@@ -18,9 +18,11 @@ class Tangkapan_model extends BaseModelStrict
             $this->db->where('p.jenis_karantina', substr($f['karantina'], -1));
         }
 
-        if (!empty($f['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $f['permohonan']);
-        }
+        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
+
+    if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
+        $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+    }
 
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
             $this->db->where('p3.tanggal >=', $f['start_date'].' 00:00:00');
@@ -37,6 +39,8 @@ class Tangkapan_model extends BaseModelStrict
                 $this->db->or_like('kom.nama', $q);
                 $this->db->or_like('p3.ket_lokasi_tangkap', $q);
                 $this->db->or_like('p3.petugas', $q);
+                $this->db->or_like('mr.nama', $q);
+                $this->db->or_like('p3.alasan', $q);
             $this->db->group_end();
         }
     }
@@ -67,6 +71,10 @@ class Tangkapan_model extends BaseModelStrict
         ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
         ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id', 'left')
         ->join("$tableKom kom", 'pkom.komoditas_id = kom.id', 'left');
+
+        if (!empty($f['search'])) {
+            $this->db->join('master_rekomendasi mr', 'p3.rekomendasi_id = mr.id', 'left');
+        }
 
         $this->applyFilters($f);
 
@@ -170,6 +178,10 @@ class Tangkapan_model extends BaseModelStrict
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
             ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id', 'left')
             ->join("$tableKom kom", 'pkom.komoditas_id = kom.id', 'left');
+
+        if (!empty($f['search'])) {
+            $this->db->join('master_rekomendasi mr', 'p3.rekomendasi_id = mr.id', 'left');
+        }
 
         $this->applyFilters($f);
 

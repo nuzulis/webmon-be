@@ -34,7 +34,7 @@ class Transaksi extends MY_Controller
        $filters = [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE) ?: date('Y-m-d'),
             'end_date'   => $this->input->get('end_date', TRUE) ?: date('Y-m-d'),
             'search'     => $this->input->get('search', true),
@@ -80,17 +80,19 @@ class Transaksi extends MY_Controller
     $filters = [
         'upt'        => $this->input->get('upt', TRUE),
         'karantina'  => $karantina,
-        'permohonan' => strtoupper(trim($this->input->get('permohonan', TRUE))),
+        'lingkup'    => $this->input->get('lingkup', TRUE),
         'start_date' => $this->input->get('start_date', TRUE) ?: $today,
         'end_date'   => $this->input->get('end_date', TRUE) ?: $today,
         'search'     => $this->input->get('search', TRUE)
     ];
+
     $ids = $this->Transaksi_model->getIds($filters, 10000, 0);
     $rows = !empty($ids) ? $this->Transaksi_model->getByIds($ids, $filters['karantina']) : [];
 
     if (empty($rows)) {
-        return $this->jsonRes(404, ['success' => false, 'message' => 'Data tidak ditemukan untuk diunduh']);
+        return $this->json(['success' => false, 'message' => 'Data tidak ditemukan untuk diunduh'], 404);
     }
+
     $headers = [
         'No.', 'Sumber', 'No. Aju', 'Tgl Aju', 'No. Dokumen', 'Tgl Dokumen',
         'UPT', 'Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
@@ -127,12 +129,10 @@ class Transaksi extends MY_Controller
 
         $lastId = $r['id'];
     }
-    $title = "LAPORAN TRANSAKSI" . 
-             ($filters['start_date'] == $filters['end_date'] 
-                ? " TANGGAL " . date('d/m/Y', strtotime($filters['start_date']))
-                : " PERIODE " . date('d/m/Y', strtotime($filters['start_date'])) . " - " . date('d/m/Y', strtotime($filters['end_date'])));
-    
+
+    $title = "LAPORAN TRANSAKSI " . strtoupper($filters['lingkup'] ?? 'SEMUA'); 
     $reportInfo = $this->buildReportHeader($title, $filters);
+    if (ob_get_length()) ob_end_clean();
 
     return $this->excel_handler->download(
         "Laporan_Transaksi_" . date('Ymd_His'), 

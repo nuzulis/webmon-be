@@ -22,8 +22,10 @@ class Revisi_model extends BaseModelStrict
             $this->db->where('p.upt_id', $f['upt']);
         }
         
-        if (!empty($f['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $f['permohonan']);
+        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
+
+        if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
+            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
             $this->db->where('p8.tanggal >=', $f['start_date']);
@@ -47,80 +49,91 @@ class Revisi_model extends BaseModelStrict
         }
     }
 
-    public function getIds($f, $limit, $offset) {
-        $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
-        $sortByKey = !empty($f['sort_by']) ? $f['sort_by'] : 'tgl_dok';
-        $sortBy = ($sortByKey === 'no_dok') ? 'p8.nomor' : 'p8.tanggal';
-        $sortOrder = strtoupper($f['sort_order'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
-        $this->db->select('p.id', false)
-            ->from('ptk p')
-            ->join("$table p8", 'p.id = p8.ptk_id');
-        $pegawaiJoined = !empty($f['search']);
-        if ($pegawaiJoined) {
-            $this->db->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left');
-            $this->db->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
-        }
+   public function getIds($f, $limit, $offset) {
+    $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
+    $this->db->select('p.id, MAX(p8.tanggal) as sort_tgl', false)
+        ->from('ptk p')
+        ->join("$table p8", 'p.id = p8.ptk_id');
 
-        $this->applyFilters($f, $table, $pegawaiJoined);
-        $this->db->order_by($sortBy, $sortOrder)
-            ->limit($limit, $offset);
-
-        $res = $this->db->get()->result_array();
-        return array_column($res, 'id');
+    $pegawaiJoined = !empty($f['search']);
+    if ($pegawaiJoined) {
+        $this->db->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left');
+        $this->db->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
     }
-    public function countAll($f) {
-        $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
-        $this->db->select('COUNT(*) AS total', false)
-            ->from('ptk p')
-            ->join("$table p8", 'p.id = p8.ptk_id');
-        $pegawaiJoined = !empty($f['search']);
-        if ($pegawaiJoined) {
-            $this->db->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left');
-            $this->db->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
-        }
 
-        $this->applyFilters($f, $table, $pegawaiJoined);
-        
-        return (int) ($this->db->get()->row()->total ?? 0);
+    $this->applyFilters($f, $table, $pegawaiJoined);
+    $this->db->group_by('p.id');
+    $sortByKey = !empty($f['sort_by']) ? $f['sort_by'] : 'tgl_dok';
+    if ($sortByKey === 'no_dok') {
+        $this->db->order_by('MAX(p8.nomor)', strtoupper($f['sort_order'] ?? 'DESC'));
+    } else {
+        $this->db->order_by('sort_tgl', strtoupper($f['sort_order'] ?? 'DESC'));
     }
+
+    $this->db->limit($limit, $offset);
+
+    $res = $this->db->get();
+    if (!$res) {
+        log_message('error', 'Query Gagal: ' . $this->db->last_query());
+        return [];
+    }
+
+    $data = $res->result_array();
+    return array_column($data, 'id');
+}
+
+public function countAll($f) {
+    $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
+    $this->db->select('COUNT(DISTINCT p.id) AS total', false)
+        ->from('ptk p')
+        ->join("$table p8", 'p.id = p8.ptk_id');
+
+    $pegawaiJoined = !empty($f['search']);
+    if ($pegawaiJoined) {
+        $this->db->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left');
+        $this->db->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
+    }
+
+    $this->applyFilters($f, $table, $pegawaiJoined);
+    
+    return (int) ($this->db->get()->row()->total ?? 0);
+}
 
     public function getByIds($ids, $karantina = 'T', $sortBy = 'tgl_dok', $sortOrder = 'DESC') {
-        if (empty($ids)) return [];
+    if (empty($ids)) return [];
+    
+    $table = $this->getPelepasanTable($karantina);
+    $this->db->select("
+        p.id, 
+        ANY_VALUE(IF(p.tssm_id IS NOT NULL, 'SSM', 'PTK')) AS sumber,
+        ANY_VALUE(p.no_aju) AS no_aju, 
+        ANY_VALUE(mu.nama) AS upt,
+        ANY_VALUE(mu.nama_satpel) AS nama_satpel, 
+        ANY_VALUE(p.no_dok_permohonan) AS no_dok_permohonan,
+        ANY_VALUE(p.tgl_dok_permohonan) AS tgl_dok_permohonan,
         
-        $table = $this->getPelepasanTable($karantina);
-        $sortMap = [
-            'no_dok'  => 'no_dok',
-            'tgl_dok' => 'tgl_dok',
-        ];
-        $orderBy = $sortMap[$sortBy] ?? 'tgl_dok';
-        $order = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
-        $this->db->select("
-            p.id, 
-            IF(p.tssm_id IS NOT NULL, 'SSM', 'PTK') AS sumber,
-            p.no_aju, 
-            mu.nama AS upt,
-            mu.nama_satpel AS nama_satpel, 
-            p.no_dok_permohonan,
-            p.tgl_dok_permohonan,
-            p8.nomor AS no_dok, 
-            p8.nomor_seri,
-            p8.tanggal AS tgl_dok,
-            p8.deleted_at,
-            p8.alasan_delete, 
-            mp1.nama AS penandatangan,
-            mp2.nama AS yang_menghapus
-        ", false);
-
-        $this->db->from('ptk p')
-            ->join("$table p8", 'p.id = p8.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id')
-            ->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left')
-            ->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
-
-        $ids_string = implode(',', array_map([$this->db, 'escape'], $ids));
-        $this->db->where("p.id IN ($ids_string)", NULL, FALSE);
-        $this->db->order_by($orderBy, $order);
+        -- Jika satu ptk_id punya banyak nomor revisi, tampilkan semua dipisah <br>
+        GROUP_CONCAT(p8.nomor SEPARATOR '<br>') AS no_dok, 
+        GROUP_CONCAT(p8.nomor_seri SEPARATOR '<br>') AS nomor_seri,
+        MAX(p8.tanggal) AS tgl_dok, -- Ambil tanggal terbaru untuk sorting
         
-        return $this->db->get()->result_array();
-    }
+        GROUP_CONCAT(p8.deleted_at SEPARATOR '<br>') AS deleted_at,
+        GROUP_CONCAT(p8.alasan_delete SEPARATOR '<br>') AS alasan_delete, 
+        ANY_VALUE(mp1.nama) AS penandatangan,
+        ANY_VALUE(mp2.nama) AS yang_menghapus
+    ", false);
+
+    $this->db->from('ptk p')
+        ->join("$table p8", 'p.id = p8.ptk_id')
+        ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
+        ->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left')
+        ->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
+
+    $this->db->where_in('p.id', $ids);
+    $this->db->group_by('p.id');
+    $order = strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC';
+    $this->db->order_by('tgl_dok', $order);
+    
+    return $this->db->get()->result_array();
+}
 }

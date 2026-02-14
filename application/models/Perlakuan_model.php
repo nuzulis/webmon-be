@@ -205,8 +205,8 @@ class Perlakuan_model extends BaseModelStrict
         if (!empty($filter['karantina'])) {
             $this->db->where('p.jenis_karantina', $filter['karantina']);
         }
-        if (!empty($filter['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $filter['permohonan']);
+        if (!empty($filter['lingkup']) && !in_array(strtolower($filter['lingkup']), ['all', 'semua'])) {
+        $this->db->where('p.jenis_permohonan', strtoupper($filter['lingkup']));
         }
         if (!empty($filter['start_date'])) {
             $this->db->where('p4.tanggal >=', $filter['start_date'] . ' 00:00:00');

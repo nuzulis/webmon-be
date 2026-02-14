@@ -143,12 +143,11 @@ class Pengasingan_model extends BaseModelStrict
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
         ]);
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['semua', 'all'])) {
-            if (strlen($f['upt']) > 2) {
-                $uptPrefix = substr($f['upt'], 0, 2);
-                $this->db->where('p.kode_satpel LIKE', $uptPrefix . '%');
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'])) {
+            if (strlen($f['upt']) <= 4) {
+                $this->db->where('p.upt_id', $f['upt']);
             } else {
-                $this->db->where('p.kode_satpel LIKE', $f['upt'] . '%');
+                $this->db->where('p.kode_satpel', $f['upt']);
             }
         }
         if (!empty($f['karantina'])) {

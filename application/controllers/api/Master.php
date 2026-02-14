@@ -31,36 +31,34 @@ class Master extends CI_Controller {
 
     
     if ($table_name === 'master_upt') {
-
         $user_upt = $this->input->get('upt');
-
         $this->db->select('MIN(id) as id, nama, kode_upt');
         $this->db->from('master_upt');
         $this->db->where_not_in('id', ['1000', '1001', '1002']);
 
-        if ($user_upt !== '1000' && $user_upt && $user_upt !== 'Semua') {
+        if ($user_upt && !in_array($user_upt, ['1000', 'Semua', 'all'])) {
             $prefix = substr($user_upt, 0, 2);
-            $this->db->where("LEFT(id,2) =", $prefix);
+            $this->db->where("LEFT(id, 2) =", $prefix);
         }
 
-        $this->db->select('MIN(id) as id, nama, kode_upt');
         $this->db->group_by(['kode_upt', 'nama']);
         $this->db->order_by('nama', 'ASC');
 
-    }
-
-    elseif ($table_name === 'master_pegawai') {
-
+    } elseif ($table_name === 'master_pegawai') {
         $this->db->select('id, nama');
         $this->db->from('master_pegawai');
 
         $selected_upt = $this->input->get('upt');
-        if ($selected_upt && $selected_upt !== 'Semua' && $selected_upt !== '1000') {
+        
+        if ($selected_upt && !in_array($selected_upt, ['Semua', '1000', 'all', 'all_upt'])) {
             $prefix = substr($selected_upt, 0, 2);
             $this->db->where("LEFT(upt_id, 2) =", $prefix);
-        }
-    }
-    else {
+        } 
+        
+        $this->db->order_by('nama', 'ASC');
+        $this->db->limit(3000); 
+
+    } else {
         $this->db->select('id, nama');
         $this->db->from($table_name);
         $this->db->order_by('nama', 'ASC');
@@ -73,4 +71,5 @@ class Master extends CI_Controller {
         ->set_content_type('application/json')
         ->set_output(json_encode($data));
 }
+
 }

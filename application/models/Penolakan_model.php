@@ -27,13 +27,22 @@ class Penolakan_model extends BaseModelStrict
             ->from('ptk p')
             ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
-        $needPegawaiJoin = !empty($f['search']) || ($f['sort_by'] === 'petugas');
-        
+        $hasSearch = !empty($f['search']);
+        $needPegawaiJoin = $hasSearch || ($f['sort_by'] === 'petugas');
+
         if ($needPegawaiJoin) {
             $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left');
         }
 
-        $this->applyManualFilter($f, $needPegawaiJoin);
+        if ($hasSearch) {
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $kar = strtoupper($f['karantina'] ?? 'H');
+            $kom = $kar === 'H' ? 'komoditas_hewan'
+                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $needPegawaiJoin, $hasSearch);
         $sortMap = [
             'nomor_penolakan' => 'MAX(p6.nomor)',
             'tgl_penolakan'   => 'MAX(p6.tanggal)',
@@ -113,13 +122,22 @@ class Penolakan_model extends BaseModelStrict
             ->from('ptk p')
             ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
-        $needPegawaiJoin = !empty($f['search']);
-        
+        $hasSearch = !empty($f['search']);
+        $needPegawaiJoin = $hasSearch;
+
         if ($needPegawaiJoin) {
             $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left');
         }
 
-        $this->applyManualFilter($f, $needPegawaiJoin);
+        if ($hasSearch) {
+            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
+            $kar = strtoupper($f['karantina'] ?? 'H');
+            $kom = $kar === 'H' ? 'komoditas_hewan'
+                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
+        }
+
+        $this->applyManualFilter($f, $needPegawaiJoin, $hasSearch);
 
         return (int)($this->db->get()->row()->total ?? 0);
     }
@@ -166,8 +184,9 @@ class Penolakan_model extends BaseModelStrict
             'pk.deleted_at'   => '1970-01-01 08:00:00'
         ]);
 
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
-            $this->db->like('p.kode_satpel', substr($f['upt'],0,2), 'after');
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
+            $this->db->where($field, $f['upt']);
         }
 
         if (!empty($f['karantina'])) {
@@ -191,7 +210,7 @@ class Penolakan_model extends BaseModelStrict
         return $rows;
     }
 
-    private function applyManualFilter($f, $hasPegawaiJoin = true)
+    private function applyManualFilter($f, $hasPegawaiJoin = true, $hasKomoditasJoin = false)
     {
         $this->db->where([
             'p.is_verifikasi' => '1',
@@ -199,14 +218,15 @@ class Penolakan_model extends BaseModelStrict
             'p6.deleted_at'   => '1970-01-01 08:00:00'
         ]);
 
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'], true)) {
-            $this->db->like('p.kode_satpel', substr($f['upt'], 0, 2), 'after');
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
+            $this->db->where($field, $f['upt']);
         }
         if (!empty($f['karantina'])) {
             $this->db->where('p.jenis_karantina', $f['karantina']);
         }
-        if (!empty($f['permohonan'])) {
-            $this->db->where('p.jenis_permohonan', $f['permohonan']);
+        if (!empty($f['lingkup']) && !in_array(strtolower($f['lingkup']), ['all', 'semua'])) {
+            $this->db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
         }
         if (!empty($f['start_date'])) {
             $this->db->where('p6.tanggal >=', $f['start_date'] . ' 00:00:00');
@@ -216,15 +236,22 @@ class Penolakan_model extends BaseModelStrict
         }
         if (!empty($f['search'])) {
             $searchColumns = [
+                'p.no_aju',
                 'p6.nomor',
                 'p.no_dok_permohonan',
                 'mu.nama',
                 'mu.nama_satpel',
                 'p.nama_pengirim',
                 'p.nama_penerima',
+                'p6.alasan_lain',
             ];
             if ($hasPegawaiJoin) {
                 $searchColumns[] = 'mp.nama';
+            }
+            if ($hasKomoditasJoin) {
+                $searchColumns[] = 'k.nama';
+                $searchColumns[] = 'pk.nama_umum_tercetak';
+                $searchColumns[] = 'pk.kode_hs';
             }
 
             $this->applyGlobalSearch($f['search'], $searchColumns);
