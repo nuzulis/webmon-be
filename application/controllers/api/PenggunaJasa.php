@@ -44,7 +44,7 @@ class PenggunaJasa extends MY_Controller
         ], 200);
     }
     
-    public function detail()
+        public function detail()
     {
         $input = json_decode(file_get_contents("php://input"), true);
         $id = $input['id'] ?? null;
@@ -52,22 +52,23 @@ class PenggunaJasa extends MY_Controller
         if (!$id) {
             return $this->json([
                 'success' => false,
-                'message' => 'ID tidak valid'
+                'message' => 'ID parameter is required'
             ], 400);
         }
-        
         $profil = $this->PenggunaJasa_model->get_profil_lengkap($id);
 
-        $history = [];
-        if ($profil) {
-            $history = $this->PenggunaJasa_model->get_history_ptk($profil['id']);
+        if (!$profil) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Pengguna jasa tidak ditemukan'
+            ], 404);
         }
-
+        $history = $this->PenggunaJasa_model->get_history_ptk($profil['uid']);
         return $this->json([
             'success' => true,
             'data' => [
                 'profil'  => $profil,
-                'history' => $history
+                'history' => $history ?: []
             ]
         ], 200);
     }

@@ -8,6 +8,7 @@ class Elab_model extends BaseModelStrict
     public function __construct()
     {
         parent::__construct();
+        $this->db = $this->load->database('elab', TRUE);
     }
 
     public function getIds($f, $limit, $offset)
