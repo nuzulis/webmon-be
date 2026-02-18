@@ -13,14 +13,14 @@ class Kwitansi_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($filter, $limit, $offset)
+    public function getIds($f, $limit, $offset)
     {
-        $allData = $this->getAllDataFromSimponi($filter);
+        $allData = $this->getAllDataFromSimponi($f);
         if (empty($allData)) return [];
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
+        if (!empty($f['search'])) {
+            $allData = $this->filterBySearch($allData, $f['search']);
         }
-        $allData = $this->sortData($allData, $filter['sort_by'] ?? 'tanggal', $filter['sort_order'] ?? 'DESC');
+        $allData = $this->sortData($allData, $f['sort_by'] ?? 'tanggal', $f['sort_order'] ?? 'DESC');
         $total = count($allData);
         $paginatedData = array_slice($allData, $offset, $limit);
         $this->session->set_userdata('kwitansi_temp_data', $paginatedData);

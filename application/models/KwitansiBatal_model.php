@@ -14,14 +14,14 @@ class KwitansiBatal_model extends BaseModelStrict
     }
 
 
-    public function getIds($filter, $limit, $offset)
+    public function getIds($f, $limit, $offset)
     {
-        $allData = $this->fetchFromApi($filter);
+        $allData = $this->fetchFromApi($f);
         if (empty($allData)) return [];
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
+        if (!empty($f['search'])) {
+            $allData = $this->filterBySearch($allData, $f['search']);
         }
-        $allData = $this->sortData($allData, $filter['sort_by'] ?? 'deleted_at', $filter['sort_order'] ?? 'DESC');
+        $allData = $this->sortData($allData, $f['sort_by'] ?? 'deleted_at', $f['sort_order'] ?? 'DESC');
         $total = count($allData);
         $paginatedData = array_slice($allData, $offset, $limit);
         $this->session->set_userdata('kwitansi_batal_temp_data', $paginatedData);

@@ -33,7 +33,10 @@ class Penugasan_model extends BaseModelStrict
         $this->db->group_by('h.id');
         $this->db->limit($limit, $offset);
 
-        $res = $this->db->get()->result_array();
+        $this->db->reconnect();
+        $query = $this->db->get();
+        if (!$query) return [];
+        $res = $query->result_array();
         return array_column($res, 'id');
     }
 
@@ -71,7 +74,9 @@ class Penugasan_model extends BaseModelStrict
         $this->db->group_by('h.id');
         $this->db->order_by('h.tanggal', 'DESC');
 
-        return $this->db->get()->result_array();
+        $this->db->reconnect();
+        $query = $this->db->get();
+        return $query ? $query->result_array() : [];
     }
 
     public function countAll($f)
@@ -88,7 +93,9 @@ class Penugasan_model extends BaseModelStrict
 
         $this->applyManualFilter($f);
 
-        $row = $this->db->get()->row();
+        $this->db->reconnect();
+        $query = $this->db->get();
+        $row = $query ? $query->row() : null;
         return $row ? (int) $row->total : 0;
     }
 
@@ -144,7 +151,9 @@ class Penugasan_model extends BaseModelStrict
 
         $this->db->order_by('h.tanggal', 'DESC');
 
-        return $this->db->get()->result_array();
+        $this->db->reconnect();
+        $query = $this->db->get();
+        return $query ? $query->result_array() : [];
     }
 
     private function applyManualFilter($f)

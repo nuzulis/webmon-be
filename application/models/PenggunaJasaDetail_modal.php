@@ -1,6 +1,8 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
+require_once APPPATH . 'core/BaseModelStrict.php';
+
 class PenggunaJasaDetail_model extends BaseModelStrict {
 
     public function getIds($filter, $limit, $offset)
