@@ -2,8 +2,10 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * @property KwitansiBatal_model $KwitansiBatal_model
- * @property Excel_handler $excel_handler
+ * @property CI_Input             $input
+ * @property CI_Session           $session
+ * @property KwitansiBatal_model  $KwitansiBatal_model
+ * @property Excel_handler        $excel_handler
  */
 class KwitansiBatal extends MY_Controller
 {
@@ -11,53 +13,83 @@ class KwitansiBatal extends MY_Controller
     {
         parent::__construct();
         $this->load->model('KwitansiBatal_model');
+        $this->load->library('session');
         $this->load->library('excel_handler');
     }
 
     public function index()
     {
-        $filters = $this->_get_filters();
-        $page = (int) ($this->input->get('page') ?: 1);
-        $per_page = (int) ($this->input->get('per_page') ?: 10);
+        $filters = [
+            'karantina'   => $this->input->get('karantina', TRUE),
+            'permohonan'  => $this->input->get('permohonan', TRUE),
+            'upt'         => $this->input->get('upt', TRUE) ?: 'all',
+            'start_date'  => $this->input->get('start_date', TRUE),
+            'end_date'    => $this->input->get('end_date', TRUE),
+            'berdasarkan' => $this->input->get('berdasarkan', TRUE),
+            'search'      => $this->input->get('search', TRUE),
+            'sort_by'     => $this->input->get('sort_by', TRUE),
+            'sort_order'  => $this->input->get('sort_order', TRUE),
+        ];
+
+        $this->applyScope($filters);
+
+        $page    = max((int) $this->input->get('page'), 1);
+        $perPage = (int) $this->input->get('per_page') ?: 10;
+        $offset  = ($page - 1) * $perPage;
 
         try {
-            $all_rows = $this->KwitansiBatal_model->fetch($filters);
-            $total_data = count($all_rows);
-            $offset = ($page - 1) * $per_page;
-            $sliced_rows = array_slice($all_rows, $offset, $per_page);
-            $total_page = ($total_data > 0) ? ceil($total_data / $per_page) : 1;
-            return $this->jsonRes(200, [
+            $ids   = $this->KwitansiBatal_model->getIds($filters, $perPage, $offset);
+            $data  = $this->KwitansiBatal_model->getByIds($ids);
+            $total = $this->KwitansiBatal_model->countAll($filters);
+
+            return $this->json([
                 'success' => true,
-                'data'    => $sliced_rows,
+                'data'    => $data,
                 'meta'    => [
-                    'total'      => $total_data,
                     'page'       => $page,
-                    'per_page'   => $per_page,
-                    'total_page' => (int) $total_page
+                    'per_page'   => $perPage,
+                    'total'      => $total,
+                    'total_page' => (int) ceil($total / $perPage)
                 ]
-            ]);
+            ], 200);
         } catch (Exception $e) {
-            return $this->jsonRes(500, ['success' => false, 'message' => $e->getMessage()]);
+            log_message('error', 'KwitansiBatal Error: ' . $e->getMessage());
+            return $this->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
     public function export_excel()
     {
-        $filters = $this->_get_filters();
-        $rows = $this->KwitansiBatal_model->fetch($filters);
+        $filters = [
+            'karantina'   => $this->input->get('karantina', TRUE),
+            'permohonan'  => $this->input->get('permohonan', TRUE),
+            'upt'         => $this->input->get('upt', TRUE) ?: 'all',
+            'start_date'  => $this->input->get('start_date', TRUE),
+            'end_date'    => $this->input->get('end_date', TRUE),
+            'berdasarkan' => $this->input->get('berdasarkan', TRUE),
+            'search'      => $this->input->get('search', TRUE),
+        ];
+        $rows = $this->KwitansiBatal_model->getFullData($filters);
 
         if (empty($rows)) {
-            return $this->jsonRes(404, ['success' => false, 'message' => 'Data tidak ditemukan']);
+            return $this->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
         }
 
         $headers = [
-            'No', 'UPT', 'Satpel', 'Karantina', 'Nomor Kuitansi', 
+            'No.', 'UPT', 'Satpel', 'Karantina', 'Nomor Kuitansi', 
             'Tanggal', 'Permohonan', 'Wajib Bayar', 'Total PNBP', 
             'Kode Billing', 'NTPN', 'Alasan Batal', 'Tanggal Batal'
         ];
 
         $exportData = [];
         $no = 1;
+        
         foreach ($rows as $r) {
             $exportData[] = [
                 $no++,
@@ -69,34 +101,19 @@ class KwitansiBatal extends MY_Controller
                 $r['jenis_permohonan'],
                 $r['wajib_bayar'],
                 $r['total_pnbp'],
-                $r['kode_bill'],
+                "'" . $r['kode_bill'],
                 $r['ntpn'],
                 $r['alasan_hapus'],
                 $r['deleted_at']
             ];
         }
 
-        $reportInfo = $this->buildReportHeader("LAPORAN KUITANSI BATAL", $filters, $rows);
+        $title = "LAPORAN KUITANSI BATAL";
+        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
         $reportInfo['sub_judul'] = "Biro Umum dan Keuangan";
         
         $this->logActivity("EXPORT EXCEL: Kuitansi Batal Periode " . $filters['start_date']);
-        $this->excel_handler->download("Kuitansi_Batal", $headers, $exportData, $reportInfo);
-    }
-
-    private function _get_filters()
-    {
-        $filters = [
-            'karantina'   => $this->input->get('karantina', true),
-            'permohonan'  => $this->input->get('permohonan', true),
-            'start_date'  => $this->input->get('start_date', true),
-            'end_date'    => $this->input->get('end_date', true),
-            'berdasarkan' => $this->input->get('berdasarkan', true),
-            'upt_id'      => $this->input->get('upt', true) ?: 'all',
-        ];
-
-        $this->applyScope($filters);
-        $filters['upt'] = $filters['upt_id'] ?? 'all'; 
         
-        return $filters;
+        return $this->excel_handler->download("Kuitansi_Batal", $headers, $exportData, $reportInfo);
     }
 }

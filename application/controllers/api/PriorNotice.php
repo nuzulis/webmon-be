@@ -2,10 +2,9 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
- * @property CI_Input $input
- * @property CI_Output $output
+ * @property CI_Input         $input
  * @property PriorNotice_model $PriorNotice_model
- * @property Excel_handler $excel_handler
+ * @property Excel_handler    $excel_handler
  */
 class PriorNotice extends MY_Controller
 {
@@ -13,42 +12,47 @@ class PriorNotice extends MY_Controller
     {
         parent::__construct();
         $this->load->model('PriorNotice_model');
-        $this->load->helper('jwt');
         $this->load->library('excel_handler');
     }
 
     public function index()
-{
-    $filters = [
-        'upt'        => $this->input->get('upt', true),
-        'karantina'  => $this->input->get('karantina', true),
-        'start_date' => $this->input->get('start_date', true),
-        'end_date'   => $this->input->get('end_date', true),
-    ];
+    {
+        $filters = [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => $this->input->get('karantina', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', TRUE),
+            'sort_by'    => $this->input->get('sort_by', TRUE),
+            'sort_order' => $this->input->get('sort_order', TRUE),
+        ];
 
-    $page = (int) $this->input->get('page', true) ?: 1;
-    $per_page = (int) $this->input->get('per_page', true) ?: 10;
-    $result = $this->PriorNotice_model->fetch($filters);
-    
-    if (!$result['success']) {
-        return $this->json(400);
+        $page     = max((int) $this->input->get('page', TRUE), 1);
+        $per_page = (int) $this->input->get('per_page', TRUE) ?: 10;
+        $result = $this->PriorNotice_model->fetch($filters);
+        
+        if (!$result['success']) {
+            return $this->json([
+                'success' => false,
+                'message' => $result['message']
+            ], 400);
+        }
+        $allData = $this->PriorNotice_model->filterAndSort($result['data'], $filters);
+        $total      = count($allData);
+        $offset     = ($page - 1) * $per_page;
+        $slicedData = array_slice($allData, $offset, $per_page);
+
+        return $this->json([
+            'success' => true,
+            'data'    => $this->format($slicedData),
+            'meta'    => [
+                'total'      => $total,
+                'page'       => $page,
+                'per_page'   => $per_page,
+                'total_page' => (int) ceil($total / $per_page)
+            ]
+        ], 200);
     }
-
-    $allData = $result['data'];
-    $total = count($allData);
-    $offset = ($page - 1) * $per_page;
-    $slicedData = array_slice($allData, $offset, $per_page);
-    return $this->json([
-        'success' => true,
-        'data'    => $this->format($slicedData),
-        'meta'    => [
-            'total'      => $total,
-            'page'       => $page,
-            'per_page'   => $per_page,
-            'total_page' => ceil($total / $per_page)
-        ]
-    ], 200);
-}
 
     private function format(array $rows): array
     {
@@ -77,58 +81,70 @@ class PriorNotice extends MY_Controller
     }
 
     public function export_excel()
-{
-    $filters = [
-        'upt'        => $this->input->get('upt', true),
-        'karantina'  => $this->input->get('karantina', true),
-        'start_date' => $this->input->get('start_date', true),
-        'end_date'   => $this->input->get('end_date', true),
-    ];
-
-    $result = $this->PriorNotice_model->fetch($filters);
-    
-    if (!$result['success']) {
-        die($result['message']);
-    }
-
-    $rows = $result['data'];
-
-    $headers = [
-        'No', 'No. Prior Notice', 'Tgl Dokumen', 'Pemohon', 
-        'Eksportir', 'Negara Asal', 'Importir', 
-        'Komoditas', 'Volume', 'Satuan',
-        'Alat Angkut (Voyage)', 'Tujuan', 'ETA (Tgl Tiba)'
-    ];
-    $exportData = [];
-    $no = 1;
-    $lastDocNbr = null;
-
-    foreach ($rows as $r) {
-        $isIdem = ($r['docnbr'] === $lastDocNbr && !empty($r['docnbr']));
-
-        $exportData[] = [
-            $isIdem ? '' : $no++,                     
-            $isIdem ? 'Idem' : ($r['docnbr'] ?? '-'),
-            $isIdem ? '' : ($r['tgl_doc'] ?? '-'),
-            $isIdem ? '' : ($r['name'] ?? '-'),
-            $isIdem ? '' : ($r['company'] ?? '-'),
-            $isIdem ? '' : ($r['neg_origin'] ?? '-'),
-            $isIdem ? '' : ($r['company_imp'] ?? '-'),
-            $r['komoditas'] ?? '-',
-            $r['volume'] ?? '0',
-            $r['sat_komoditas'] ?? '-',
-            $isIdem ? '' : ($r['novoyage'] ?? '-'),
-            $isIdem ? '' : (($r['pelabuhan_tujuan'] ?? '') . ', ' . ($r['kota_tuju'] ?? '')),
-            $isIdem ? '' : ($r['tgl_tiba'] ?? '-')
+    {
+        $filters = [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => $this->input->get('karantina', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', TRUE),
         ];
 
-        $lastDocNbr = $r['docnbr'];
+        $result = $this->PriorNotice_model->fetch($filters);
+        
+        if (!$result['success']) {
+            return $this->json([
+                'success' => false,
+                'message' => $result['message']
+            ], 400);
+        }
+        $rows = $this->PriorNotice_model->filterAndSort($result['data'], $filters);
+
+        if (empty($rows)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan'
+            ], 404);
+        }
+
+        $headers = [
+            'No.', 'No. Prior Notice', 'Tgl Dokumen', 'Pemohon', 
+            'Eksportir', 'Negara Asal', 'Importir', 
+            'Komoditas', 'Volume', 'Satuan',
+            'Alat Angkut (Voyage)', 'Tujuan', 'ETA (Tgl Tiba)'
+        ];
+
+        $exportData = [];
+        $no = 1;
+        $lastDocNbr = null;
+
+        foreach ($rows as $r) {
+            $isIdem = ($r['docnbr'] === $lastDocNbr && !empty($r['docnbr']));
+
+            $exportData[] = [
+                $isIdem ? '' : $no++,                     
+                $isIdem ? 'Idem' : ($r['docnbr'] ?? '-'),
+                $isIdem ? 'Idem' : ($r['tgl_doc'] ?? '-'),
+                $isIdem ? 'Idem' : ($r['name'] ?? '-'),
+                $isIdem ? 'Idem' : ($r['company'] ?? '-'),
+                $isIdem ? 'Idem' : ($r['neg_origin'] ?? '-'),
+                $isIdem ? 'Idem' : ($r['company_imp'] ?? '-'),
+                $r['komoditas'] ?? '-',
+                $r['volume'] ?? '0',
+                $r['sat_komoditas'] ?? '-',
+                $isIdem ? 'Idem' : ($r['novoyage'] ?? '-'),
+                $isIdem ? 'Idem' : (($r['pelabuhan_tujuan'] ?? '') . ', ' . ($r['kota_tuju'] ?? '')),
+                $isIdem ? 'Idem' : ($r['tgl_tiba'] ?? '-')
+            ];
+
+            $lastDocNbr = $r['docnbr'];
+        }
+
+        $title = "LAPORAN PRIOR NOTICE - " . strtoupper($filters['karantina'] ?? 'ALL');
+        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+
+        $this->logActivity("EXPORT EXCEL: Prior Notice {$filters['karantina']}");
+
+        return $this->excel_handler->download("Laporan_Prior_Notice", $headers, $exportData, $reportInfo);
     }
-
-
-    $title = "LAPORAN PRIOR NOTICE - " . strtoupper($filters['karantina'] ?? 'ALL');
-    $reportInfo = $this->buildReportHeader($title, $filters);
-    return $this->excel_handler->download("Laporan_Prior_Notice", $headers, $exportData, $reportInfo);
-}
-
 }

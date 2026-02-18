@@ -2,6 +2,8 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 /**
+ * @property CI_Input           $input
+ * @property CI_Output          $output
  * @property PeriksaLapangan_model $PeriksaLapangan_model
  * @property Excel_handler      $excel_handler
  */
@@ -11,40 +13,52 @@ class PeriksaLapangan extends MY_Controller
     {
         parent::__construct();
         $this->load->model('PeriksaLapangan_model');
+        $this->load->helper(['jwt']);
         $this->load->library('excel_handler');
     }
 
-        public function index()
+    public function index()
     {
         $filters = [
-            'upt'        => $this->input->get('upt', true),
-            'karantina'  => $this->input->get('karantina', true),
-            'lingkup'    => $this->input->get('lingkup', true), 
-            'start_date' => $this->input->get('start_date', true),
-            'end_date'   => $this->input->get('end_date', true),
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+            'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+            'search'     => $this->input->get('search', TRUE),
+            'sort_by'    => $this->input->get('sort_by', TRUE),
+            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
-        $this->applyScope($filters);
-
         $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
+        $perPage = (int) ($this->input->get('per_page') ?? 10);
         $offset  = ($page - 1) * $perPage;
 
         $ids   = $this->PeriksaLapangan_model->getIds($filters, $perPage, $offset);
-        $rows  = $this->PeriksaLapangan_model->getByIds($ids);
+        $data  = $this->PeriksaLapangan_model->getByIds($ids);
         $total = $this->PeriksaLapangan_model->countAll($filters);
 
-        return $this->jsonRes(200, [
+        return $this->json([
             'success' => true,
-            'data'    => $rows,
+            'data'    => $data,
             'meta'    => [
                 'page'       => $page,
                 'per_page'   => $perPage,
                 'total'      => $total,
                 'total_page' => (int) ceil($total / $perPage),
             ]
-        ]);
+        ], 200);
     }
+
+    public function detail($id)
+    {
+        $data = $this->PeriksaLapangan_model->getDetailFinal($id);
+        if (!$data) {
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
+        }
+        return $this->json(['success' => true, 'data' => $data], 200);
+    }
+
 
     public function export_excel()
     {

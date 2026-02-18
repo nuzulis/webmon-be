@@ -92,10 +92,10 @@ class Dashboard extends MY_Controller
             'upt_id' => $this->input->get('upt_id', true) ?: 'all',
             'jns'    => strtoupper($this->input->get('jns', true) ?: 'Y'),
             'year'   => (int) ($this->input->get('year', true) ?: date('Y')),
+            'month'  => $this->input->get('month', true) ?: date('m'),
         ];
 
-        $cacheKey = "pnbp_v2_{$filter['upt_id']}_{$filter['jns']}_{$filter['year']}";
-
+        $cacheKey = "pnbp_v2_{$filter['upt_id']}_{$filter['jns']}_{$filter['year']}_{$filter['month']}";
         if (!$data = $this->cache->get($cacheKey)) {
             $data = $this->Dashboard_model->get_pnbp($filter);
             $this->cache->save($cacheKey, $data, 43200); 
@@ -106,6 +106,21 @@ class Dashboard extends MY_Controller
             'data'    => $data
         ]);
     }
+
+    public function pnbp_potensi() 
+{
+    $uptId = $this->input->get('upt_id');
+    $year  = $this->input->get('year') ?? date('Y');
+    $month = $this->input->get('month') ?? date('m');
+
+    $result = $this->Dashboard_model->get_potensi_simponi($uptId, $year, $month);
+
+    // Jika Anda menggunakan MY_Controller yang punya fungsi jsonRes
+    return $this->jsonRes(200, $result);
+
+    // Atau jika menggunakan json standar:
+    // return $this->json($result);
+}
 
     public function top_komoditi()
     {

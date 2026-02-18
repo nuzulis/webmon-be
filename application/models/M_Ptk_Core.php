@@ -3,9 +3,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class M_Ptk_Core extends CI_Model
 {
-    /* ========================================
-     * DATA UTAMA PTK
-     * ======================================== */
+
     public function get_ptk_detail($filter, $value)
     {
         $this->db->select("

@@ -3,11 +3,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class ElabDetail_model extends CI_Model
 {
-    /**
-     * ============================
-     * 1. HEADER / MASTER PENERIMAAN
-     * ============================
-     */
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db = $this->load->database('elab', TRUE);
+    }
     public function getHeader($penerimaanId)
     {
         return $this->db
@@ -37,11 +37,6 @@ class ElabDetail_model extends CI_Model
             ->row_array();
     }
 
-    /**
-     * ============================
-     * 2. KOMODITAS / PENERIMAAN DETIL
-     * ============================
-     */
     public function getKomoditas($penerimaanId)
     {
         return $this->db
@@ -67,11 +62,6 @@ class ElabDetail_model extends CI_Model
             ->result_array();
     }
 
-    /**
-     * ============================
-     * 3. SAMPEL + TARGET + METODE + ANALIS
-     * ============================
-     */
     public function getSampel($penerimaanId)
     {
         return $this->db
@@ -100,11 +90,6 @@ class ElabDetail_model extends CI_Model
             ->result_array();
     }
 
-    /**
-     * ============================
-     * 4. HASIL UJI LAB (KESIMPULAN)
-     * ============================
-     */
     public function getHasilUji($penerimaanId)
     {
         return $this->db
@@ -119,11 +104,6 @@ class ElabDetail_model extends CI_Model
             ->row_array();
     }
 
-    /**
-     * ============================
-     * 5. TIMELINE / LOG AKTIVITAS
-     * ============================
-     */
     public function getTimeline($penerimaanId)
     {
         return $this->db
@@ -141,11 +121,6 @@ class ElabDetail_model extends CI_Model
             ->result_array();
     }
 
-    /**
-     * ============================
-     * 6. AGGREGATOR (1 CALL API)
-     * ============================
-     */
     public function getFullDetail($penerimaanId)
     {
         return [

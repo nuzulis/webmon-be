@@ -213,25 +213,83 @@ class Dashboard_model extends CI_Model
         return $db->query($sql)->result_array();
     }
 
-    public function get_pnbp($filter) 
-    {
-        $db = $this->dbBarantin();
-        if (!$db) return [];
+     public function get_pnbp($filter) 
+{
+    $db = $this->dbBarantin();
+    if (!$db) return [];
+    $uptId = $filter['upt_id'] ?? 'ALL';
+    $kdupt = ($uptId == '1000' || strtoupper($uptId) === 'ALL') ? 'ALL' : (string)$uptId;
 
-        $uptId = $filter['upt_id'] ?? 'ALL';
-        $kdupt = ($uptId === 'all' || $uptId === 'ALL') ? 'ALL' : substr((string)$uptId, 0, 2);
-        $year  = $filter['year'] ?? date('Y');
-        $month = ($filter['jns'] === 'M') ? date('m') : '0';
-        $query = $db->query("CALL dashboard.GetPNBP(?, ?, ?)", [$year, $month, $kdupt]);
-        
-        if ($query) {
-            $result = $query->result_array();
-            
-            if (method_exists($db->conn_id, 'next_result')) {
-                $db->conn_id->next_result();
-            }
-            return $result;
+    $year  = (int)($filter['year'] ?? date('Y'));
+    $isMonthly = (isset($filter['jns']) && $filter['jns'] === 'M');
+    $month = $isMonthly ? (int)($filter['month'] ?? date('m')) : 0;
+
+    $query = $db->query("CALL dashboard.GetPNBP(?, ?, ?)", [
+        $year, 
+        $month, 
+        $kdupt
+    ]);
+
+    if ($query) {
+        $result = $query->result_array();
+        if (method_exists($db->conn_id, 'next_result')) {
+            $db->conn_id->next_result();
         }
-        return [];
+        return $result;
+    }
+    return [];
+}
+
+    public function get_potensi_simponi($uptId, $year, $month)
+    {
+        $kdupt = ($uptId == '1000' || strtoupper($uptId) === 'ALL' || empty($uptId)) ? '' : $uptId;
+        $bln = str_pad($month, 2, "0", STR_PAD_LEFT);
+        
+        $url = "https://simponi.karantinaindonesia.go.id/epnbp/laporan";
+        $strdata = 'thn='.$year.'&bln='.$bln.'&upt='.$kdupt;
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $strdata);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/x-www-form-urlencoded',
+            'Authorization: Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm'
+        ]);
+        
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60); 
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        $response = curl_exec($ch);
+        $err_no = curl_errno($ch);
+        $err_msg = curl_error($ch);
+        curl_close($ch);
+
+        if ($err_no) {
+            return [
+                "success" => false,
+                "status" => false, 
+                "message" => "Simponi Timeout: Jaringan sibuk atau tidak merespon."
+            ];
+        }
+
+        $data = json_decode($response, true);
+        
+        if (isset($data['status']) && $data['status']) {
+            return [
+                "success" => true,
+                "status" => true,
+                "data" => isset($data['data'][0]) ? $data['data'][0] : $data['data']
+            ];
+        }
+
+        return [
+            "success" => false,
+            "status" => false,
+            "message" => $data['message'] ?? "Data tidak ditemukan"
+        ];
     }
 }
