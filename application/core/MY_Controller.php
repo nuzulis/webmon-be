@@ -180,16 +180,17 @@ class MY_Controller extends CI_Controller
         $action = $customAction
             ?: "AKSES MENU: {$controller} ({$method})";
 
-        return $this->db_ums->insert('activity_log', [
-            'id'         => $this->uuidV4(),
-            'users_id'   => $this->user['sub']   ?? null,
-            'username'   => $this->user['uname'] ?? 'guest',
-            'action'     => $action,
-            'apps_id'    => '008',
-            'ip_address' => $this->input->ip_address(),
-            'user_agent' => $this->agent->agent_string(),
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+            return true;
+        // return $this->db_ums->insert('activity_log', [
+        //     'id'         => $this->uuidV4(),
+        //     'users_id'   => $this->user['sub']   ?? null,
+        //     'username'   => $this->user['uname'] ?? 'guest',
+        //     'action'     => $action,
+        //     'apps_id'    => '008',
+        //     'ip_address' => $this->input->ip_address(),
+        //     'user_agent' => $this->agent->agent_string(),
+        //     'created_at' => date('Y-m-d H:i:s'),
+        // ]);
     }
 
     protected function uuidV4(): string
