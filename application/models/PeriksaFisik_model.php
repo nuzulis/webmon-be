@@ -80,7 +80,7 @@ class PeriksaFisik_model extends BaseModelStrict
         }
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $hasSearch = !empty($f['search']);
         $this->db->select('p.id, MAX(p1b.tanggal) as max_tanggal', false)

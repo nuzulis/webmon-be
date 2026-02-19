@@ -70,7 +70,6 @@ $route['api/dashboard/pnbp_potensi'] = 'api/dashboard/pnbp_potensi';
 $route['api/carikuitansi']        = 'api/carikuitansi';
 $route['api/elab/detail/(:any)'] = 'ElabDetail/detail/$1';
 $route['api/pemeriksaanlapangan'] = 'api/PeriksaLapangan/index';
-$route['api/pemeriksaanlapangan/export_excel'] = 'api/PeriksaLapangan/export_excel';
 $route['pemeriksaan-lapangan/detail/(:any)'] = 'PeriksaLapangan/detail/$1';
 
 $route['api/system/info'] = 'api/system/info';

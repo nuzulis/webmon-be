@@ -10,7 +10,7 @@ class BatalPermohonan_model extends BaseModelStrict
     parent::__construct();
 }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
 {
     $this->db->select('p.id', false)
         ->from('ptk p')

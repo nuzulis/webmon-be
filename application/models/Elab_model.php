@@ -11,7 +11,7 @@ class Elab_model extends BaseModelStrict
         $this->db = $this->load->database('elab', TRUE);
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('pr.id, pr.tanggal AS last_tgl', false)
             ->from('`elab-barantin`.penerimaan pr');

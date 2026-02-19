@@ -45,7 +45,7 @@ class Tangkapan_model extends BaseModelStrict
         }
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $sortMap = [
             'no_p3'  => 'p3.nomor',

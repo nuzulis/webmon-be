@@ -10,7 +10,7 @@ class PenggunaJasa_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('DISTINCT pj.id, MAX(r.created_at) as max_created', false)
             ->from('dbregptk.registers r')

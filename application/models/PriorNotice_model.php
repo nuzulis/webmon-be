@@ -101,7 +101,7 @@ class PriorNotice_model extends BaseModelStrict
         return $result;
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         return [];
     }

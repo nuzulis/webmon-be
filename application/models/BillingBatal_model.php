@@ -10,7 +10,7 @@ class BillingBatal_model extends BaseModelStrict
    private $cachedData = null;
 
     public function __construct() { parent::__construct(); }
-    public function getIds($f, $limit, $offset)
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $data = $this->fetchDataInternal($f);
         if (!empty($f['search'])) {

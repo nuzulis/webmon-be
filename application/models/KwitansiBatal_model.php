@@ -14,7 +14,7 @@ class KwitansiBatal_model extends BaseModelStrict
     }
 
 
-    public function getIds($f, $limit, $offset)
+   public function getIds(array $f, int $limit, int $offset): array
     {
         $allData = $this->fetchFromApi($f);
         if (empty($allData)) return [];

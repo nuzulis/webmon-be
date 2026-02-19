@@ -10,7 +10,7 @@ class Perlakuan_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($filter, $limit, $offset)
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('p.id, MAX(p4.tanggal) AS max_tgl', false)
             ->from('ptk p')
@@ -33,7 +33,7 @@ class Perlakuan_model extends BaseModelStrict
             }
         }
 
-        $this->applyManualFilter($filter, $needExtraJoins);
+        $this->applyManualFilter($f, $needExtraJoins);
 
         $sortMap = [
             'no_p4'            => 'MAX(p4.nomor)',

@@ -66,7 +66,7 @@ if (!empty($f['start_date']) && !empty($f['end_date'])) {
     }
 }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('p.id', false)->from('ptk p');
         

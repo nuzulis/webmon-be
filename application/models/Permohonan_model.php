@@ -10,7 +10,7 @@ class Permohonan_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('p.id, MAX(p.tgl_dok_permohonan) AS max_tgl', false)
             ->from('ptk p')

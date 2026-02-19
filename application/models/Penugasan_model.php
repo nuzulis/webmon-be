@@ -10,7 +10,7 @@ class Penugasan_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($f, $limit, $offset)
+public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->select('DISTINCT h.id, MAX(h.tanggal) as max_tanggal', false)
             ->from('ptk_surtug_header h')
