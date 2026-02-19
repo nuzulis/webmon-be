@@ -5,7 +5,7 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class PenggunaJasaDetail_model extends BaseModelStrict {
 
-    public function getIds($filter, $limit, $offset)
+    public function getIds(array $filter, int $limit, int $offset): array
     {
         $this->db->select('pj.id');
         $this->db->from('dbregptk.registers AS r');

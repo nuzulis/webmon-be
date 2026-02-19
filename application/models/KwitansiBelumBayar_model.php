@@ -12,7 +12,7 @@ class KwitansiBelumBayar_model extends BaseModelStrict
     {
         parent::__construct();
     }
-    public function getIds($filter, $limit, $offset)
+    public function getIds(array $filter, int $limit, int $offset): array
     {
         $allData = $this->getAllDataFromSimponi($filter);
         if (empty($allData)) return [];

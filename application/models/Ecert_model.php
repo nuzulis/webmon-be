@@ -13,7 +13,7 @@ class Ecert_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($filter, $limit, $offset)
+    public function getIds(array $filter, int $limit, int $offset): array
     {
         $allData = $this->fetchFromApi($filter);
         if (empty($allData)) return [];
