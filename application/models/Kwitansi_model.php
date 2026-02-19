@@ -13,7 +13,7 @@ class Kwitansi_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds($f, $limit, $offset)
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $allData = $this->getAllDataFromSimponi($f);
         if (empty($allData)) return [];

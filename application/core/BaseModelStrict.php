@@ -56,7 +56,7 @@ class BaseModelStrict extends CI_Model
      * Jalankan getIdsQuery lalu paginate. Child model cukup implementasi getIdsQuery().
      * Tidak ada type hint agar kompatibel dengan child model yang override method ini (PHP 8+).
      */
-    public function getIds($f, $limit, $offset)
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $this->getIdsQuery($f);
 

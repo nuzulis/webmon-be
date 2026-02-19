@@ -28,7 +28,6 @@ class PeriksaAdmin extends MY_Controller
             'sort_by'    => $this->input->get('sort_by', TRUE),
             'sort_order' => $this->input->get('sort_order', TRUE),
         ];
-
         $page    = max((int) $this->input->get('page'), 1);
         $perPage = (int) $this->input->get('per_page') ?: 10;
         $offset  = ($page - 1) * $perPage;
