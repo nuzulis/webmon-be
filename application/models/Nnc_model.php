@@ -103,8 +103,6 @@ public function getIds(array $f, int $limit, int $offset): array
 
     public function getFullData($f)
     {
-        $ids = $this->getIds($f, 10000, 0);
-        if (empty($ids)) return [];
 
         $kar = strtoupper($f['karantina'] ?? 'H');
         $komTable = $kar === 'H' ? 'komoditas_hewan' : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
@@ -132,7 +130,8 @@ public function getIds(array $f, int $limit, int $offset): array
             ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
             ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-        $this->db->where_in('p.id', $ids)->where('pk.deleted_at', '1970-01-01 08:00:00')->order_by('p6.tanggal', 'DESC');
+        $this->applyManualFilter($f);
+        $this->db->where('pk.deleted_at', '1970-01-01 08:00:00')->order_by('p6.tanggal', 'DESC');
         $res = $this->db->get();
         return $res ? $this->formatNncData($res->result_array(), true) : [];
     }

@@ -164,8 +164,6 @@ public function getIds(array $f, int $limit, int $offset): array
 
     public function getFullData($f)
     {
-        $ids = $this->getIds($f, 20000, 0); 
-        if (empty($ids)) return [];
 
         $this->db->select("
             p.id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
@@ -188,7 +186,7 @@ public function getIds(array $f, int $limit, int $offset): array
             ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
             ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-        $this->db->where_in('p.id', $ids);
+        $this->applyManualFilter($f, false);
         $this->db->order_by('p1b.tanggal', 'DESC');
         $this->db->order_by('p.id', 'ASC');
 

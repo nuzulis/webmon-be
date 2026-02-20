@@ -142,8 +142,6 @@ class PeriksaAdmin_model extends BaseModelStrict
 
     public function getFullData($f)
     {
-        $ids = $this->getIds($f, 20000, 0); 
-        if (empty($ids)) return [];
         $this->db->select("
             p.id, 
             p.no_aju, 
@@ -172,11 +170,11 @@ class PeriksaAdmin_model extends BaseModelStrict
             ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
             ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
             ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
-            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left')
-            ->where_in('p.id', $ids)
-            ->order_by('p1a.tanggal', 'DESC')
-            ->order_by('p.id', 'ASC');
-        
+            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
+
+        $this->applyManualFilter($f, false);
+        $this->db->order_by('p1a.tanggal', 'DESC')->order_by('p.id', 'ASC');
+
         return $this->db->get()->result_array();
     }
 

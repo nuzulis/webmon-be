@@ -139,13 +139,10 @@ public function getIds(array $f, int $limit, int $offset): array
 
     public function getFullData($f)
     {
-        $ids = $this->getIds($f, 100000, 0);
-        if (empty($ids)) return [];
-
         $table = $this->getTable($f['karantina']);
         $tabel_kom = $this->getTableKom($f['karantina']);
         $tabel_klas = $this->getTableKlas($f['karantina']);
-        
+
         $this->db->select("
             p.id, p.tssm_id, p.no_aju, p.tgl_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
             p8.nomor AS nkt, p8.nomor_seri AS seri, p8.tanggal AS tanggal_lepas,
@@ -192,8 +189,8 @@ public function getIds(array $f, int $limit, int $offset): array
             ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
             ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-        $this->db->where_in('p.id', $ids);
-        $this->db->order_by('p.id', 'ASC'); 
+        $this->applyManualFilters($f, $table);
+        $this->db->order_by('p.id', 'ASC');
         $this->db->order_by('pkom.id', 'ASC');
 
         return $this->db->get()->result_array();

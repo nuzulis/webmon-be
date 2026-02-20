@@ -86,12 +86,10 @@ class Kwitansi_model extends BaseModelStrict
             'kodeSatpel'      => 'all',
         ];
 
-        log_message('debug', 'KWITANSI PAYLOAD: ' . http_build_query($payload));
 
         $response = $this->curlPost($this->endpoint, http_build_query($payload));
 
         if (!$response || empty($response['status']) || !isset($response['data'])) {
-            log_message('error', 'KWITANSI API Error: ' . json_encode($response));
             $this->_cache_data = [];
             return [];
         }
