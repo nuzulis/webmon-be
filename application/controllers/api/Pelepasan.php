@@ -1,6 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
+ini_set('memory_limit', '512M');
 /**
  * @property CI_Input       $input
  * @property Pelepasan_model $Pelepasan_model
@@ -56,6 +56,7 @@ class Pelepasan extends MY_Controller
 
     public function export_excel()
     {
+
         $filter = [
             'upt'        => $this->input->get('upt', true),
             'karantina'  => strtoupper($this->input->get('karantina', true)),
