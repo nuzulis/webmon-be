@@ -51,20 +51,11 @@ class Excel_handler {
     foreach ($data as $rowData) {
         $currentCol = 'A';
         foreach ($rowData as $cellValue) {
-            if (is_int($cellValue) || is_float($cellValue)) {
-                $sheet->setCellValueExplicit(
-                    $currentCol . $currentRow, 
-                    $cellValue, 
-                    DataType::TYPE_NUMERIC
-                );
-            } else {
-                $sheet->setCellValueExplicit(
-                    $currentCol . $currentRow, 
-                    (string)$cellValue, 
-                    DataType::TYPE_STRING
-                );
-            }
-            
+            $sheet->setCellValueExplicit(
+                $currentCol . $currentRow, 
+                (string)$cellValue, 
+                \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+            );
             $currentCol++;
         }
         $currentRow++;
