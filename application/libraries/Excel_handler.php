@@ -47,6 +47,7 @@ class Excel_handler {
             $sheet->getColumnDimension($colChar)->setAutoSize(true);
             $colChar++;
         }
+
         $currentRow++;
         foreach ($data as $rowData) {
             $currentCol = 'A';
