@@ -221,6 +221,8 @@ public function getIds(array $f, int $limit, int $offset): array
 
             kom.nama AS komoditas,
             pkom.volume_lain AS volume,
+            pkom.volumeP1 AS vol_p1, pkom.volumeP2 AS vol_p2, pkom.volumeP3 AS vol_p3,
+            pkom.nettoP1 AS net_p1, pkom.nettoP2 AS net_p2, pkom.nettoP3 AS net_p3,
             ms.nama AS satuan,
 
             p3.alasan AS alasan_tahan,

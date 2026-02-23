@@ -81,10 +81,25 @@ class KwitansiBatal extends MY_Controller
             ], 404);
         }
 
+        // 17 Kolom persis seperti urutan HTML Anda
         $headers = [
-            'No.', 'UPT', 'Satpel', 'Karantina', 'Nomor Kuitansi', 
-            'Tanggal', 'Permohonan', 'Wajib Bayar', 'Total PNBP', 
-            'Kode Billing', 'NTPN', 'Alasan Batal', 'Tanggal Batal'
+            'No.', 
+            'UPT', 
+            'Satpel', 
+            'Pos Pelayanan', 
+            'Karantina', 
+            'Nomor Kwitansi', 
+            'Tanggal Kwitansi', 
+            'Jenis Permohonan', 
+            'Nama Wajib Bayar', 
+            'Tipe Bayar', 
+            'Total PNBP', 
+            'Kode Billing', 
+            'NTPN', 
+            'NTB', 
+            'Dibuat Tanggal', 
+            'Alasan Batal', 
+            'Tanggal Batal'
         ];
 
         $exportData = [];
@@ -93,18 +108,22 @@ class KwitansiBatal extends MY_Controller
         foreach ($rows as $r) {
             $exportData[] = [
                 $no++,
-                $r['upt'],
-                $r['satpel'],
-                $r['jenis_karantina'],
-                $r['nomor'],
-                $r['tanggal'],
-                $r['jenis_permohonan'],
-                $r['wajib_bayar'],
-                $r['total_pnbp'],
-                "'" . $r['kode_bill'],
-                $r['ntpn'],
-                $r['alasan_hapus'],
-                $r['deleted_at']
+                $r['upt'] ?? '-',
+                $r['satpel'] ?? '-',
+                $r['pos_pelayanan'] ?? '-',
+                $r['jenis_karantina'] ?? '-',
+                $r['nomor'] ?? '-',
+                $r['tanggal'] ?? '-',
+                $r['jenis_permohonan'] ?? '-',
+                $r['wajib_bayar'] ?? '-',
+                $r['tipe_bayar'] ?? '-',
+                (float) ($r['total_pnbp'] ?? 0),
+                "'" . ($r['kode_bill'] ?? '-'),
+                $r['ntpn'] ?? '-',
+                $r['ntb'] ?? '-',
+                $r['created_at'] ?? '-',
+                $r['alasan_hapus'] ?? '-',
+                $r['deleted_at'] ?? '-'
             ];
         }
 

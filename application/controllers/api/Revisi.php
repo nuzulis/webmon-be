@@ -98,13 +98,12 @@ class Revisi extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['sumber'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? '-'),
-                $isIdem ? '' : ($r['tgl_dok_permohonan'] ?? '-'),
-                $isIdem ? '' : ($r['upt'] ?? '-'),
-                $isIdem ? '' : ($r['nama_satpel'] ?? '-'),
-                
+                $r['sumber'] ?? '-',
+                $r['no_aju'] ?? '-',
+                $r['no_dok_permohonan'] ?? '-',
+                $r['tgl_dok_permohonan'] ?? '-',
+                $r['upt'] ?? '-',
+                $r['nama_satpel'] ?? '-',
                 $r['no_dok'] ?? '-',
                 $r['nomor_seri'] ?? '-',
                 $r['tgl_dok'] ?? '-',

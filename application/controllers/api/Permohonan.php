@@ -96,30 +96,30 @@ class Permohonan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no,
-                $isIdem ? 'Idem' : ($r['tssm_id'] ? 'SSM' : 'PTK'),
-                $isIdem ? 'Idem' : ($r['no_aju'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_aju'] ?? ''),
-                $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['upt'] ?? ''),
-                $isIdem ? 'Idem' : ($r['satpel'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_tempat_pemeriksaan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_pemohon'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_penerima'] ?? ''),
-                $isIdem ? 'Idem' : ($r['asal'] ?: $r['kota_asal']),
-                $isIdem ? 'Idem' : ($r['tujuan'] ?: $r['kota_tujuan']),
-                $isIdem ? 'Idem' : ($r['nama_alat_angkut_terakhir'] ?? ''),
-                $isIdem ? 'Idem' : ($r['kemas'] ?? ''),
-                $isIdem ? 'Idem' : ($r['total_kemas'] ?? ''),
+                ($r['tssm_id'] ? 'SSM' : 'PTK'),
+                ($r['no_aju'] ?? ''),
+                ($r['tgl_aju'] ?? ''),
+                ($r['no_dok_permohonan'] ?? ''),
+                ($r['tgl_dok_permohonan'] ?? ''),
+                ($r['upt'] ?? ''),
+                ($r['satpel'] ?? ''),
+                ($r['nama_tempat_pemeriksaan'] ?? ''),
+                ($r['nama_pemohon'] ?? ''),
+                ($r['nama_pengirim'] ?? ''),
+                ($r['nama_penerima'] ?? ''),
+                ($r['asal'] ?: $r['kota_asal']),
+                ($r['tujuan'] ?: $r['kota_tujuan']),
+                ($r['nama_alat_angkut_terakhir'] ?? ''),
+                ($r['kemas'] ?? ''),
+                ($r['total_kemas'] ?? ''),
                 $r['komoditas'] ?? '',
                 $r['nama_umum_tercetak'] ?? '',
                 $r['hs'] ?? '',
-                $r['p1'] ?? '',
-                $r['p2'] ?? '',
-                $r['p3'] ?? '',
-                $r['p4'] ?? '',
-                $r['p5'] ?? '',
+                (float) ($r['p1'] ?? 0),
+                (float) ($r['p2'] ?? 0),
+                (float) ($r['p3'] ?? 0),
+                (float) ($r['p4'] ?? 0),
+                (float) ($r['p5'] ?? 0),
                 $r['satuan'] ?? '',
                 $r['harga_rp'] ?? '',
                 $slaLabel,
@@ -133,7 +133,7 @@ class Permohonan extends MY_Controller
             $lastAju = $r['no_aju'];
         }
 
-        $title = "LAPORAN PERMOHONAN KARANTINA (K.1.1) - " . ($filters['karantina'] ?: 'ALL');
+        $title = "LAPORAN PERMOHONAN KARANTINA " . ($filters['karantina'] ?: 'ALL');
         $reportInfo = $this->buildReportHeader($title, $filters, $rows);
 
         $this->logActivity("EXPORT EXCEL: Permohonan {$filters['karantina']}");

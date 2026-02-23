@@ -81,7 +81,6 @@ class Pelepasan extends MY_Controller
             'Nomor Dokumen', 'Nomor Seri', 'Tgl Dokumen', 'Klasifikasi', 'Komoditas', 'Nama Tercetak', 'Kode HS',
             'Vol P1', 'Vol P2', 'Vol P3', 'Vol P4', 'Vol P5', 'Vol P6', 'Vol P7', 'Vol P8', 'Vol Lain',
             'Netto P1', 'Netto P2', 'Netto P3', 'Netto P4', 'Netto P5', 'Netto P6', 'Netto P7', 'Netto P8',
-            
             'Satuan', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
         ];
 
@@ -93,58 +92,79 @@ class Pelepasan extends MY_Controller
             $isIdem = ($r['id'] === $lastId);
             if (!$isIdem) { $no++; }
 
+            $exportData = [];
+        $no = 0;
+        $lastId = null;
+
+        foreach ($rows as $r) {
+            $isIdem = ($r['id'] === $lastId);
+            if (!$isIdem) { $no++; }
+
             $exportData[] = [
                 $isIdem ? '' : $no,
-                $isIdem ? 'Idem' : (isset($r['tssm_id']) ? 'SSM' : 'PTK'),
-                $isIdem ? 'Idem' : $r['no_aju'],
-                $isIdem ? 'Idem' : $r['tgl_aju'],
-                $isIdem ? 'Idem' : $r['no_dok_permohonan'],
-                $isIdem ? 'Idem' : $r['tgl_dok_permohonan'],
-                $isIdem ? 'Idem' : $r['upt'],
-                $isIdem ? 'Idem' : $r['satpel'],
-                $isIdem ? 'Idem' : $r['nama_tempat_pemeriksaan'],
-                $isIdem ? 'Idem' : $r['alamat_tempat_pemeriksaan'],
-                $isIdem ? 'Idem' : $r['tgl_pemeriksaan'],
-                $isIdem ? 'Idem' : $r['nama_pemohon'],
-                $isIdem ? 'Idem' : $r['alamat_pemohon'],
-                $isIdem ? 'Idem' : $r['nomor_identitas_pemohon'],
-                $isIdem ? 'Idem' : $r['nama_pengirim'],
-                $isIdem ? 'Idem' : $r['alamat_pengirim'],
-                $isIdem ? 'Idem' : $r['nomor_identitas_pengirim'],
-                $isIdem ? 'Idem' : $r['nama_penerima'],
-                $isIdem ? 'Idem' : $r['alamat_penerima'],
-                $isIdem ? 'Idem' : $r['nomor_identitas_penerima'],
-                $isIdem ? 'Idem' : $r['asal'],
-                $isIdem ? 'Idem' : $r['kota_asal'],
-                $isIdem ? 'Idem' : $r['pelabuhanasal'],
-                $isIdem ? 'Idem' : $r['tujuan'],
-                $isIdem ? 'Idem' : $r['kota_tujuan'],
-                $isIdem ? 'Idem' : $r['pelabuhantuju'],
-                $isIdem ? 'Idem' : $r['moda'],
-                $isIdem ? 'Idem' : $r['nama_alat_angkut_terakhir'],
-                $isIdem ? 'Idem' : $r['no_voyage_terakhir'],
-                $isIdem ? 'Idem' : $r['kemas'],
-                $isIdem ? 'Idem' : $r['total_kemas'],
-                $isIdem ? 'Idem' : $r['tanda_khusus'],
-                $isIdem ? 'Idem' : $r['nkt'],
-                $isIdem ? 'Idem' : $r['seri'],
-                $isIdem ? 'Idem' : $r['tanggal_lepas'],
+                $r['tssm_id'] ? 'SSM' : 'PTK',
+                $r['no_aju'],
+                $r['tgl_aju'],
+                $r['no_dok_permohonan'],
+                $r['tgl_dok_permohonan'],
+                $r['upt'],
+                $r['satpel'],
+                $r['nama_tempat_pemeriksaan'],
+                $r['alamat_tempat_pemeriksaan'],
+                $r['tgl_pemeriksaan'],
+                $r['nama_pemohon'],
+                $r['alamat_pemohon'],
+                $r['nomor_identitas_pemohon'],
+                $r['nama_pengirim'],
+                $r['alamat_pengirim'],
+                $r['nomor_identitas_pengirim'],
+                $r['nama_penerima'],
+                $r['alamat_penerima'],
+                $r['nomor_identitas_penerima'],
+                $r['asal'],
+                $r['kota_asal'],
+                $r['pelabuhanasal'],
+                $r['tujuan'],
+                $r['kota_tujuan'],
+                $r['pelabuhantuju'],
+                $r['moda'],
+                $r['nama_alat_angkut_terakhir'],
+                $r['no_voyage_terakhir'],
+                $r['kemas'],
+                (float) ($r['total_kemas'] ?? 0),
+                $r['tanda_khusus'],
+                $r['nkt'],
+                $r['seri'],
+                $r['tanggal_lepas'],
                 $r['klasifikasi'] ?? '-',
                 $r['komoditas'] ?? '-',
                 $r['nama_umum_tercetak'] ?? '-',
                 $r['hs'] ?? '-',
-                $r['vol_p1'], $r['vol_p2'], $r['vol_p3'], $r['vol_p4'], 
-                $r['vol_p5'], $r['vol_p6'], $r['vol_p7'], $r['vol_p8'],
-                $r['volume_lain'],
-                $r['net_p1'], $r['net_p2'], $r['net_p3'], $r['net_p4'], 
-                $r['net_p5'], $r['net_p6'], $r['net_p7'], $r['net_p8'],
+                (float) ($r['vol_p1'] ?? 0), 
+                (float) ($r['vol_p2'] ?? 0), 
+                (float) ($r['vol_p3'] ?? 0), 
+                (float) ($r['vol_p4'] ?? 0), 
+                (float) ($r['vol_p5'] ?? 0), 
+                (float) ($r['vol_p6'] ?? 0), 
+                (float) ($r['vol_p7'] ?? 0), 
+                (float) ($r['vol_p8'] ?? 0),
+                (float) ($r['volume_lain'] ?? 0),
+                (float) ($r['net_p1'] ?? 0), 
+                (float) ($r['net_p2'] ?? 0), 
+                (float) ($r['net_p3'] ?? 0), 
+                (float) ($r['net_p4'] ?? 0), 
+                (float) ($r['net_p5'] ?? 0), 
+                (float) ($r['net_p6'] ?? 0), 
+                (float) ($r['net_p7'] ?? 0), 
+                (float) ($r['net_p8'] ?? 0),
 
                 $r['satuan'],
-                $r['harga_rp'],
-                $isIdem ? 'Idem' : ($r['kontainer_string'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['dokumen_pendukung_string'] ?? '-')
+                (float) ($r['harga_rp'] ?? 0),
+                $r['kontainer_string'] ?? '-',
+                $r['dokumen_pendukung_string'] ?? '-'
             ];
             $lastId = $r['id'];
+        }
         }
 
         $title = "LAPORAN PELEPASAN (" . $filter['karantina'] . ")";

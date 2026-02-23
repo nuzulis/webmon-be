@@ -89,7 +89,7 @@ class Ecert extends MY_Controller
             'Pelabuhan Tujuan',
             'UPT Tujuan'
         ];
-
+        
         $exportData = [];
         $no = 1;
         foreach ($rows as $r) {

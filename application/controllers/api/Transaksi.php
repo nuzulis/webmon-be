@@ -72,7 +72,7 @@ class Transaksi extends MY_Controller
     }
 
     public function export_excel()
-{
+    {
     $today = date('Y-m-d');
     $rawKarantina = strtoupper(trim($this->input->get('karantina', TRUE)));
     $karantina = (strlen($rawKarantina) > 1) ? substr($rawKarantina, -1) : $rawKarantina;
@@ -87,7 +87,7 @@ class Transaksi extends MY_Controller
     ];
 
     $ids = $this->Transaksi_model->getIds($filters, 10000, 0);
-    $rows = !empty($ids) ? $this->Transaksi_model->getByIds($ids, $filters['karantina']) : [];
+    $rows = !empty($ids) ? $this->Transaksi_model->getByIdsForExcel($ids) : [];
 
     if (empty($rows)) {
         return $this->json(['success' => false, 'message' => 'Data tidak ditemukan untuk diunduh'], 404);
@@ -108,23 +108,23 @@ class Transaksi extends MY_Controller
 
         $exportData[] = [
             $isIdem ? '' : $no++, 
-            $isIdem ? 'Idem' : ($r['sumber'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_aju'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_dok'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_dok'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['satpel'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['pengirim'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['penerima'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['asal_kota'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tujuan_kota'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tempat_periksa'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_periksa'] ?? '-'),
-            str_replace('<br>', "\n", $r['komoditas'] ?? '-'),
-            str_replace('<br>', "\n", $r['hs'] ?? '-'),
-            str_replace('<br>', "\n", $r['volume'] ?? '-'),
-            str_replace('<br>', "\n", $r['satuan'] ?? '-')
+            $r['sumber'] ?? '-',
+            $r['no_aju'] ?? '-',
+            $r['tgl_aju'] ?? '-',
+            $r['no_dok'] ?? '-',
+            $r['tgl_dok'] ?? '-',
+            $r['upt'] ?? '-',
+            $r['satpel'] ?? '-',
+            $r['pengirim'] ?? '-',
+            $r['penerima'] ?? '-',
+            trim($r['asal_kota'] ?? ' - ', ' -'),
+            trim($r['tujuan_kota'] ?? ' - ', ' -'),
+            $r['tempat_periksa'] ?? '-',
+            $r['tgl_periksa'] ?? '-',
+            $r['komoditas'] ?? '-',
+            $r['hs'] ?? '-',
+            (float) ($r['volume'] ?? 0), 
+            $r['satuan'] ?? '-'
         ];
 
         $lastId = $r['id'];

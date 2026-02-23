@@ -85,22 +85,22 @@ class Perlakuan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['no_p4'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_p4'] ?? ''),
-                $isIdem ? 'Idem' : (($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? '')),
-                $isIdem ? 'Idem' : ($r['lokasi_perlakuan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_penerima'] ?? ''),
+                ($r['no_p4'] ?? ''),
+                ($r['tgl_p4'] ?? ''),
+                (($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? '')),
+                ($r['lokasi_perlakuan'] ?? ''),
+                ($r['nama_pengirim'] ?? ''),
+                ($r['nama_penerima'] ?? ''),
                 $r['komoditas'] ?? '',
                 $r['volume'] ?? '',
                 $r['satuan'] ?? '',
-                $isIdem ? 'Idem' : ($r['alasan_perlakuan'] ?? ''),
-                $isIdem ? 'Idem' : ($r['metode'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tipe'] ?? ''),
-                $isIdem ? 'Idem' : ($r['mulai'] ?? ''),
-                $isIdem ? 'Idem' : ($r['selesai'] ?? ''),
-                $isIdem ? 'Idem' : ($r['rekom'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_operator'] ?? '')
+                ($r['alasan_perlakuan'] ?? ''),
+                ($r['metode'] ?? ''),
+                ($r['tipe'] ?? ''),
+                ($r['mulai'] ?? ''),
+                ($r['selesai'] ?? ''),
+                ($r['rekom'] ?? ''),
+                ($r['nama_operator'] ?? '')
             ];
 
             $lastId = $r['id'];

@@ -85,21 +85,21 @@ class PeriksaFisik extends MY_Controller
 
         $exportData[] = [
             $isIdem ? '' : $no++,
-            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_p1b'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_p1b'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_satpel'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_penerima'] ?? '-'),
-            $isIdem ? 'Idem' : ($asalFull ?: '-'),
-            $isIdem ? 'Idem' : ($tujuanFull ?: '-'),
-            str_replace('<br>', "\n", $r['nama_umum_tercetak'] ?? '-'),
-            str_replace('<br>', "\n", $r['hs'] ?? '-'),
-            str_replace('<br>', "\n", $r['volume'] ?? '-'),
-            str_replace('<br>', "\n", $r['satuan'] ?? '-')
+            ($r['no_aju'] ?? '-'),
+            ($r['no_dok_permohonan'] ?? '-'),
+            ($r['tgl_dok_permohonan'] ?? '-'),
+            ($r['no_p1b'] ?? '-'),
+            ($r['tgl_p1b'] ?? '-'),
+            ($r['upt'] ?? '-'),
+            ($r['nama_satpel'] ?? '-'),
+            ($r['nama_pengirim'] ?? '-'),
+            ($r['nama_penerima'] ?? '-'),
+            ($asalFull ?: '-'),
+            ($tujuanFull ?: '-'),
+            $r['nama_umum_tercetak'] ?? '-', 
+            $r['hs'] ?? '-',
+            (float) ($r['volume'] ?? 0),
+            $r['satuan'] ?? '-'
         ];
 
         $lastId = $r['id'];

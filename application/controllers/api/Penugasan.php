@@ -89,12 +89,12 @@ class Penugasan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : $r['nomor_surtug'],
-                $isIdem ? 'Idem' : $r['tgl_surtug'],
-                $isIdem ? 'Idem' : $r['no_dok_permohonan'],
-                $isIdem ? 'Idem' : $r['tgl_dok_permohonan'],
-                $isIdem ? 'Idem' : $r['upt'],
-                $isIdem ? 'Idem' : $r['satpel'],
+                $r['nomor_surtug'],
+                $r['tgl_surtug'],
+                $r['no_dok_permohonan'],
+                $r['tgl_dok_permohonan'],
+                $r['upt'],
+                $r['satpel'],
                 $r['nama_petugas'],
                 $r['nip_petugas'],
                 $r['jenis_tugas'],
@@ -103,8 +103,14 @@ class Penugasan extends MY_Controller
                 $r['nama_komoditas'], 
                 $r['nama_umum_tercetak'], 
                 $r['kode_hs'],
-                $r['volumeP1'], $r['volumeP2'], $r['volumeP3'], $r['volumeP4'],
-                $r['volumeP5'], $r['volumeP6'], $r['volumeP7'], $r['volumeP8'],
+                (float) ($r['volumeP1'] ?? 0), 
+                (float) ($r['volumeP2'] ?? 0), 
+                (float) ($r['volumeP3'] ?? 0), 
+                (float) ($r['volumeP4'] ?? 0),
+                (float) ($r['volumeP5'] ?? 0), 
+                (float) ($r['volumeP6'] ?? 0), 
+                (float) ($r['volumeP7'] ?? 0), 
+                (float) ($r['volumeP8'] ?? 0),
                 $r['nama_satuan']
             ];
 

@@ -84,20 +84,20 @@ class PeriksaAdmin extends MY_Controller
 
         $exportData[] = [
             $isIdem ? '' : $no++,
-            $isIdem ? 'Idem' : ($r['no_aju'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['tgl_p1a'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['no_p1a'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['upt'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_satpel'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
-            $isIdem ? 'Idem' : ($r['nama_penerima'] ?? '-'),
-            $isIdem ? 'Idem' : ($asalFull ?: '-'),
-            $isIdem ? 'Idem' : ($tujuanFull ?: '-'),
-            str_replace('<br>', "\n", $r['tercetak'] ?? '-'),
-            str_replace('<br>', "\n", $r['hs'] ?? '-'),
-            str_replace('<br>', "\n", $r['volume'] ?? '-'),
-            str_replace('<br>', "\n", $r['satuan'] ?? '-')
+            ($r['no_aju'] ?? '-'),
+            ($r['no_dok_permohonan'] ?? '-'),
+            ($r['tgl_p1a'] ?? '-'),
+            ($r['no_p1a'] ?? '-'),
+            ($r['upt'] ?? '-'),
+            ($r['nama_satpel'] ?? '-'),
+            ($r['nama_pengirim'] ?? '-'),
+            ($r['nama_penerima'] ?? '-'),
+            ($asalFull ?: '-'),
+            ($tujuanFull ?: '-'),
+            $r['tercetak'] ?? '-', 
+            $r['hs'] ?? '-',
+            (float) ($r['volume'] ?? 0),
+            $r['satuan'] ?? '-'
         ];
 
         $lastId = $r['id'];

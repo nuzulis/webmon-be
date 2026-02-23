@@ -86,9 +86,9 @@ class PeriksaLapangan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? '' : ($r['upt_nama'] . ' / ' . ($r['nama_satpel'] ?? '-')),
-                $isIdem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $isIdem ? '' : ($r['tgl_dok_permohonan'] ?? ''),
+                $r['upt_nama'] . ' / ' . ($r['nama_satpel'] ?? '-'),
+                $r['no_dok_permohonan'] ?? '',
+                $r['tgl_dok_permohonan'] ?? '',
                 $r['no_surtug'],
                 $r['tgl_surtug'],
                 $r['nama_petugas'] . ' (' . $r['nip_petugas'] . ')',

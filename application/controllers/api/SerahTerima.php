@@ -93,18 +93,18 @@ class SerahTerima extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : $r['sumber'] ?? '-',
-                $isIdem ? 'Idem' : $r['nomor_ba'] ?? '-',
-                $isIdem ? '' : $r['tgl_ba'] ?? '-',
-                $isIdem ? '' : $r['jns_kar'] ?? '-',
-                $isIdem ? '' : $r['instansi_asal'] ?? '-',
-                $isIdem ? '' : $r['upt_tujuan'] ?? '-',
-                $isIdem ? '' : $r['media_pembawa'] ?? '-',
+                $r['sumber'] ?? '-',
+                $r['nomor_ba'] ?? '-',
+                $r['tgl_ba'] ?? '-',
+                $r['jns_kar'] ?? '-',
+                $r['instansi_asal'] ?? '-',
+                $r['upt_tujuan'] ?? '-',
+                $r['media_pembawa'] ?? '-',
                 $komoditasClean,
-                $isIdem ? 'Idem' : $r['no_aju_tujuan'] ?? '-',
-                $isIdem ? '' : $r['tgl_aju_tujuan'] ?? '-',
-                $isIdem ? '' : $r['petugas_penyerah'] ?? '-',
-                $isIdem ? '' : $r['petugas_penerima'] ?? '-',
+                $r['no_aju_tujuan'] ?? '-',
+                $r['tgl_aju_tujuan'] ?? '-',
+                $r['petugas_penyerah'] ?? '-',
+                $r['petugas_penerima'] ?? '-',
                 $ketClean
             ];
 

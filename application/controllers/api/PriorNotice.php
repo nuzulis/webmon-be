@@ -123,18 +123,18 @@ class PriorNotice extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,                     
-                $isIdem ? 'Idem' : ($r['docnbr'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['tgl_doc'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['name'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['company'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['neg_origin'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['company_imp'] ?? '-'),
+                ($r['docnbr'] ?? '-'),
+                ($r['tgl_doc'] ?? '-'),
+                ($r['name'] ?? '-'),
+                ($r['company'] ?? '-'),
+                ($r['neg_origin'] ?? '-'),
+                ($r['company_imp'] ?? '-'),
                 $r['komoditas'] ?? '-',
-                $r['volume'] ?? '0',
+                (float) ($r['volume'] ?? 0),
                 $r['sat_komoditas'] ?? '-',
-                $isIdem ? 'Idem' : ($r['novoyage'] ?? '-'),
-                $isIdem ? 'Idem' : (($r['pelabuhan_tujuan'] ?? '') . ', ' . ($r['kota_tuju'] ?? '')),
-                $isIdem ? 'Idem' : ($r['tgl_tiba'] ?? '-')
+                ($r['novoyage'] ?? '-'),
+                (($r['pelabuhan_tujuan'] ?? '') . ', ' . ($r['kota_tuju'] ?? '')),
+                ($r['tgl_tiba'] ?? '-')
             ];
 
             $lastDocNbr = $r['docnbr'];

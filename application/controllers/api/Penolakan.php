@@ -81,18 +81,18 @@ class Penolakan extends MY_Controller
 
             $data[] = [
                 $idem ? '' : $no++,
-                $idem ? 'Idem' : ($r['no_dok_permohonan'] ?? ''),
-                $idem ? 'Idem' : ($r['tgl_dok_permohonan'] ?? ''),
-                $idem ? 'Idem' : ($r['nomor_penolakan'] ?? ''),
-                $idem ? 'Idem' : ($r['tgl_penolakan'] ?? ''),
-                $idem ? 'Idem' : (($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? '')),
-                $idem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
-                $idem ? 'Idem' : ($r['nama_penerima'] ?? ''),
-                $idem ? 'Idem' : ($r['alasan_string'] ?? ''),
-                $idem ? 'Idem' : ($r['petugas'] ?? ''),
+                $r['no_dok_permohonan'] ?? '',
+                $r['tgl_dok_permohonan'] ?? '',
+                $r['nomor_penolakan'] ?? '',
+                $r['tgl_penolakan'] ?? '',
+                ($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? ''),
+                $r['nama_pengirim'] ?? '',
+                $r['nama_penerima'] ?? '',
+                $r['alasan_string'] ?? '',
+                $r['petugas'] ?? '',
                 $r['komoditas'] ?? '',
                 $r['hs']        ?? '',
-                $r['volume']    ?? '',
+                (float) ($r['volume'] ?? 0),
                 $r['satuan']    ?? '',
             ];
 

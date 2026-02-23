@@ -88,18 +88,18 @@ class Penahanan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['no_p5'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tgl_p5'] ?? ''),
-                $isIdem ? 'Idem' : ($r['upt'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_pengirim'] ?? ''),
-                $isIdem ? 'Idem' : ($r['nama_penerima'] ?? ''),
-                $isIdem ? 'Idem' : ($r['asal'] ?? ''),
-                $isIdem ? 'Idem' : ($r['tujuan'] ?? ''),
+                ($r['no_p5'] ?? ''),
+                ($r['tgl_p5'] ?? ''),
+                ($r['upt'] ?? ''),
+                ($r['nama_pengirim'] ?? ''),
+                ($r['nama_penerima'] ?? ''),
+                ($r['asal'] ?? ''),
+                ($r['tujuan'] ?? ''),
                 $r['komoditas'] ?? '-',
-                $r['volume'] ?? '-',
+                (float) ($r['volume'] ?? 0),
                 $r['satuan'] ?? '-',
-                $isIdem ? 'Idem' : ($r['alasan_string'] ?? ''),
-                $isIdem ? 'Idem' : ($r['petugas'] ?? ''),
+                ($r['alasan_string'] ?? ''),
+                ($r['petugas'] ?? ''),
             ];
 
             $lastId = $r['id'];

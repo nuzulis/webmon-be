@@ -123,7 +123,7 @@ class KwitansiBatal_model extends BaseModelStrict
 
         return $data;
     }
-    private function normalize($rows)
+   private function normalize($rows)
     {
         if (!is_array($rows)) return [];
 
@@ -136,21 +136,22 @@ class KwitansiBatal_model extends BaseModelStrict
             $seen[] = $uid;
 
             $out[] = [
-                'upt'              => $r['nama_upt'] ?? '',
-                'satpel'           => trim(($r['nama_satpel'] ?? '') . ' - ' . ($r['nama_pospel'] ?? '')),
+                'upt'              => $r['nama_upt'] ?? '-',
+                'satpel'           => $r['nama_satpel'] ?? '-',
+                'pos_pelayanan'    => $r['nama_pospel'] ?? '-',
                 'jenis_karantina'  => $this->mapKarantina($r['jenis_karantina'] ?? ''),
-                'nomor'            => $r['nomor'] ?? '',
-                'tanggal'          => $r['tanggal'] ?? '',
+                'nomor'            => $r['nomor'] ?? '-',
+                'tanggal'          => $r['tanggal'] ?? '-',
                 'jenis_permohonan' => $this->mapPermohonan($r['jenis_permohonan'] ?? ''),
-                'wajib_bayar'      => $r['nama_wajib_bayar'] ?? '',
-                'tipe_bayar'       => $r['tipe_bayar'] ?? '',
+                'wajib_bayar'      => $r['nama_wajib_bayar'] ?? '-',
+                'tipe_bayar'       => $r['tipe_bayar'] ?? '-',
                 'total_pnbp'       => (float) ($r['total_pnbp'] ?? 0),
-                'kode_bill'        => $r['kode_bill'] ?? '',
-                'ntpn'             => $r['ntpn'] ?? '',
-                'ntb'              => $r['ntb'] ?? '',
-                'created_at'       => $r['created_at'] ?? '',
+                'kode_bill'        => $r['kode_bill'] ?? '-',
+                'ntpn'             => $r['ntpn'] ?? '-',
+                'ntb'              => $r['ntb'] ?? '-',
+                'created_at'       => $r['created_at'] ?? '-',
                 'alasan_hapus'     => $r['alasan_hapus'] ?? 'Tidak disebutkan',
-                'deleted_at'       => $r['deleted_at'] ?? '',
+                'deleted_at'       => $r['deleted_at'] ?? '-',
             ];
         }
 

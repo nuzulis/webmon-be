@@ -80,7 +80,10 @@ class Tangkapan extends MY_Controller
         $headers = [
             'No', 'No. P3 (Tangkapan)', 'Tanggal P3', 'UPT', 'Satpel',
             'Lokasi', 'Keterangan Lokasi', 'Asal', 'Tujuan',
-            'Pengirim', 'Penerima', 'Komoditas', 'Volume', 'Satuan',
+            'Pengirim', 'Penerima', 'Komoditas', 'Volume',
+            'Volume P1', 'Volume P2', 'Volume P3',
+            'Netto P1', 'Netto P2', 'Netto P3',
+            'Satuan',
             'Alasan Tahan', 'Petugas Pelaksana', 'Rekomendasi'
         ];
 
@@ -93,7 +96,7 @@ class Tangkapan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $isIdem ? 'Idem' : ($r['no_p3'] ?? '-'),
+                ($r['no_p3'] ?? '-'),
                 $r['tgl_p3'] ?? '-',
                 $r['upt'] ?? '-',
                 $r['satpel'] ?? '-',
@@ -105,6 +108,12 @@ class Tangkapan extends MY_Controller
                 $r['penerima'] ?? '-',
                 $r['komoditas'] ?? '-',
                 $r['volume'] ?? '-',
+                (float) ($r['vol_p1'] ?? 0),
+                (float) ($r['vol_p2'] ?? 0),
+                (float) ($r['vol_p3'] ?? 0),
+                (float) ($r['net_p1'] ?? 0),
+                (float) ($r['net_p2'] ?? 0),
+                (float) ($r['net_p3'] ?? 0),
                 $r['satuan'] ?? '-',
                 $r['alasan_tahan'] ?? '-',
                 $r['petugas_pelaksana'] ?? '-',

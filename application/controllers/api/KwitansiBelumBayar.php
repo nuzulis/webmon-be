@@ -72,9 +72,22 @@ class KwitansiBelumBayar extends MY_Controller
         }
 
         $headers = [
-            'No.', 'UPT', 'Satpel', 'Karantina', 
-            'Nomor Kuitansi', 'Tanggal Kuitansi', 'No Aju', 'Jenis Permohonan', 
-            'Wajib Bayar', 'Total PNBP', 'Kode Billing', 'Expired Billing', 'Tipe Bayar'
+        'No.', 
+        'UPT', 
+        'Satpel/ Pos Pelayanan', 
+        'Karantina', 
+        'Nomor Kuitansi', 
+        'Tanggal Kuitansi', 
+        'Jenis Permohonan', 
+        'Nama Wajib Bayar', 
+        'Tipe Bayar', 
+        'Total PNBP', 
+        'Kode Billing', 
+        'NTPN', 
+        'NTB', 
+        'Tanggal Billing', 
+        'Tanggal Setor', 
+        'Bank'
         ];
 
         $exportData = [];
@@ -85,18 +98,21 @@ class KwitansiBelumBayar extends MY_Controller
 
             $exportData[] = [
                 $no++,
-                $item['nama_upt'] ?? '',
-                $satpelPospel,
-                $item['jenis_karantina'] ?? '',
-                $item['nomor'] ?? '',
-                $item['tanggal'] ?? '',
-                $item['no_aju'] ?? '',
-                $item['jenis_permohonan'] ?? '',
-                $item['nama_wajib_bayar'] ?? '',
-                $item['total_pnbp'] ?? 0,
-                "'" . ($item['kode_bill'] ?? ''), 
-                $item['expired_date'] ?? '',
-                $item['tipe_bayar'] ?? ''
+                $item['nama_upt'] ?? '-',
+                $satpelPospel ?: '-',
+                $item['jenis_karantina'] ?? '-',
+                $item['nomor'] ?? '-',
+                $item['tanggal'] ?? '-',
+                $item['jenis_permohonan'] ?? '-',
+                $item['nama_wajib_bayar'] ?? '-',
+                $item['tipe_bayar'] ?? '-',
+                (float) ($item['total_pnbp'] ?? 0),
+                "'" . ($item['kode_bill'] ?? '-'),
+                $item['ntpn'] ?? '-',
+                $item['ntb'] ?? '-',
+                $item['date_bill'] ?? '-',
+                $item['date_setor'] ?? '-',
+                $item['bank'] ?? '-'
             ];
         }
 

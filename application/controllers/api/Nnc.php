@@ -74,43 +74,43 @@ class Nnc extends MY_Controller
         $no = 0;
         $lastAju = null;
 
-foreach ($rows as $r) {
-    $isSame = ($r['no_aju'] === $lastAju);
-    if (!$isSame) { $no++; }
+        foreach ($rows as $r) {
+        $isIdem = ($r['no_aju'] === $lastAju);
+        if (!$isIdem) { 
+                    $no++; 
+                }
+                $exportData[] = [
+                    $isIdem ? '' : $no,
+                    $r['nomor_penolakan'] ?? '-',
+                    $r['tgl_penolakan'] ?? '-',
+                    $r['upt_full'] ?? '-',
+                    $r['kepada'] ?? '-',
+                    $r['nama_pengirim'] ?? '-',
+                    $r['nama_penerima'] ?? '-',
+                    trim(($r['asal'] ?? '') . ' - ' . ($r['kota_asal'] ?? ''), ' -'),
+                    trim(($r['tujuan'] ?? '') . ' - ' . ($r['kota_tujuan'] ?? ''), ' -'),
+                    $r['komoditas'] ?? '-',
+                    $r['kode_hs'] ?? '-',
+                    (float) ($r['volume'] ?? 0),
+                    $r['satuan'] ?? '-',
+                    $r['nnc_reason'] ?? '-',
+                    $r['petugas'] ?? '-'
+                ];
+                $lastAju = $r['no_aju'];
+            }
 
-            $exportData[] = [
-                $isSame ? '' : $no,
-                $isSame ? 'Idem' : ($r['nomor_penolakan'] ?? '-'),
-                $isSame ? 'Idem' : ($r['tgl_penolakan'] ?? '-'),
-                $isSame ? 'Idem' : ($r['upt_full'] ?? '-'),
-                $isSame ? 'Idem' : ($r['kepada'] ?? '-'),
-                $isSame ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
-                $isSame ? 'Idem' : ($r['nama_penerima'] ?? '-'),
-                $isSame ? 'Idem' : (($r['asal'] ?? '-') . ' - ' . ($r['kota_asal'] ?? '-')),
-                $isSame ? 'Idem' : (($r['tujuan'] ?? '-') . ' - ' . ($r['kota_tujuan'] ?? '-')),
-                $r['komoditas'] ?? '-',
-                $r['kode_hs'] ?? '-',
-                $r['volume'] ?? 0,
-                $r['satuan'] ?? '-',
-                $isSame ? 'Idem' : ($r['nnc_reason'] ?? '-'),
-                $isSame ? 'Idem' : ($r['petugas'] ?? '-')
-            ];
+            $title = "LAPORAN NNC";
+            $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
-            $lastAju = $r['no_aju'];
+            $this->logActivity("EXPORT EXCEL NNC");
+
+            if (ob_get_length()) ob_end_clean();
+            
+            return $this->excel_handler->download(
+                "Laporan_NNC_" . date('Ymd_His'), 
+                $headers, 
+                $exportData, 
+                $reportInfo
+            );
         }
-
-        $title = "LAPORAN NNC";
-        $reportInfo = $this->buildReportHeader($title, $filter, $rows);
-
-        $this->logActivity("EXPORT EXCEL NNC");
-
-        if (ob_get_length()) ob_end_clean();
-        
-        return $this->excel_handler->download(
-            "Laporan_NNC_" . date('Ymd_His'), 
-            $headers, 
-            $exportData, 
-            $reportInfo
-        );
-    }
 }

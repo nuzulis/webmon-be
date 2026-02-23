@@ -70,21 +70,21 @@ class Domasonline extends MY_Controller
 
         foreach ($rows as $r) {
             $isIdem = ($r['id'] === $lastId);
-            
+            $volumeAngka = isset($r['volume']) ? (float) $r['volume'] : 0;
             $exportData[] = [
                 $isIdem ? '' : $no++, 
-                $isIdem ? 'Idem' : $r['status_penerimaan'],
-                $isIdem ? 'Idem' : $r['nkt'],
-                $isIdem ? 'Idem' : $r['tanggal_lepas'],
-                $isIdem ? 'Idem' : $r['upt_asal'] . ' - ' . $r['satpel_asal'],
-                $isIdem ? 'Idem' : $r['upt_tujuan'] . ' - ' . $r['satpel_tujuan'],
-                $isIdem ? 'Idem' : $r['nama_pengirim'],
-                $isIdem ? 'Idem' : $r['nama_penerima'],
+                $r['status_penerimaan'],
+                $r['nkt'],
+                $r['tanggal_lepas'],
+                $r['upt_asal'] . ' - ' . $r['satpel_asal'],
+                $r['upt_tujuan'] . ' - ' . $r['satpel_tujuan'],
+                $r['nama_pengirim'],
+                $r['nama_penerima'],
                 $r['komoditas'],
-                $r['volume'],
+                $volumeAngka,
                 $r['satuan'],
-                $isIdem ? 'Idem' : ($r['no_dok_dm'] ?? '-'),
-                $isIdem ? 'Idem' : ($r['tgl_dok_dm'] ?? '-')
+                ($r['no_dok_dm'] ?? '-'),
+                ($r['tgl_dok_dm'] ?? '-')
             ];
             $lastId = $r['id'];
         }

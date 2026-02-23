@@ -91,33 +91,39 @@ class Monitoring extends MY_Controller
         $no = 0;
 
         foreach ($rows as $r) {
-            $isSame = ($r['no_aju'] === $lastAju);
-            if (!$isSame) {
+            $isIdem = ($r['no_aju'] === $lastAju);
+            if (!$isIdem) {
                 $no++;
             }
             
             $exportData[] = [
-                $isSame ? '' : $no,
-                $isSame ? 'Idem' : ($r['no_aju'] ?? '-'),
-                $isSame ? 'Idem' : ($r['no_dok'] ?? '-'),
-                $isSame ? 'Idem' : ($r['upt_full'] ?? '-'),
-                $isSame ? 'Idem' : ($r['nama_pengirim'] ?? '-'),
-                $isSame ? 'Idem' : ($r['nama_penerima'] ?? '-'),
-                $isSame ? 'Idem' : ($r['tgl_dok_permohonan'] ?? '-'),
-                $isSame ? 'Idem' : ($r['tgl_periksa'] ?? '-'),
-                $isSame ? 'Idem' : ($r['tanggal_lepas'] ?? '-'),
-                $isSame ? 'Idem' : ($r['status'] ?? 'Proses'),
-                $isSame ? 'Idem' : ($r['sla'] ?? '-'),
+                $isIdem ? '' : $no,
+                $r['no_aju'] ?? '-',
+                $r['no_dok'] ?? '-',
+                $r['upt_full'] ?? '-',
+                $r['nama_pengirim'] ?? '-',
+                $r['nama_penerima'] ?? '-',
+                $r['tgl_dok_permohonan'] ?? '-',
+                $r['tgl_periksa'] ?? '-',
+                $r['tanggal_lepas'] ?? '-',
+                $r['status'] ?? 'Proses',
+                $r['sla'] ?? '-',
                 $r['komoditas'] ?? '-',
                 $r['nama_umum_tercetak'] ?? '-',
-                $r['p1'] ?? 0, $r['p2'] ?? 0, $r['p3'] ?? 0, $r['p4'] ?? 0,
-                $r['p5'] ?? 0, $r['p6'] ?? 0, $r['p7'] ?? 0, $r['p8'] ?? 0,
+                (float) ($r['p1'] ?? 0), 
+                (float) ($r['p2'] ?? 0), 
+                (float) ($r['p3'] ?? 0), 
+                (float) ($r['p4'] ?? 0),
+                (float) ($r['p5'] ?? 0), 
+                (float) ($r['p6'] ?? 0), 
+                (float) ($r['p7'] ?? 0), 
+                (float) ($r['p8'] ?? 0),
+                
                 $r['satuan'] ?? '-'
             ];
 
             $lastAju = $r['no_aju'];
         }
-
         $title = "MONITORING SLA";
         $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 

@@ -161,9 +161,7 @@ public function getIds(array $f, int $limit, int $offset): array
             pkom.volume_lain,
             pkom.nettoP1 AS net_p1, pkom.nettoP2 AS net_p2, pkom.nettoP3 AS net_p3, pkom.nettoP4 AS net_p4,
             pkom.nettoP5 AS net_p5, pkom.nettoP6 AS net_p6, pkom.nettoP7 AS net_p7, pkom.nettoP8 AS net_p8,
-
-            ms.nama AS satuan, pkom.harga_rp,
-            
+            ms.nama AS satuan, pkom.harga_rp,           
             (SELECT GROUP_CONCAT(CONCAT(nomor, ' (', segel, ')') SEPARATOR '; ') 
              FROM ptk_kontainer WHERE ptk_id = p.id AND deleted_at = '1970-01-01 08:00:00') AS kontainer_string,
              
