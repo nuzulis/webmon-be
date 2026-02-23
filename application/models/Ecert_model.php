@@ -60,11 +60,15 @@ class Ecert_model extends BaseModelStrict
             return [];
         }
 
+       $negara = (!empty($filter['negara']) && $filter['negara'] !== 'Semua' && $filter['negara'] !== 'undefined') 
+              ? strtoupper($filter['negara']) 
+              : '';
+
         $payload = [
             'kar'    => $filter['karantina'],
             'dstart' => $filter['start_date'],
             'dend'   => $filter['end_date'],
-            'negara' => $filter['negara'] ?? ''
+            'negara' => $negara
         ];
 
         if (!empty($filter['upt']) && strtolower($filter['upt']) !== 'all' && strlen($filter['upt']) <= 2) {

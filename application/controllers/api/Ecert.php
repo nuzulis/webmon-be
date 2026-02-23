@@ -89,7 +89,7 @@ class Ecert extends MY_Controller
             'Pelabuhan Tujuan',
             'UPT Tujuan'
         ];
-        
+
         $exportData = [];
         $no = 1;
         foreach ($rows as $r) {
@@ -97,8 +97,8 @@ class Ecert extends MY_Controller
                 $no++,
                 $r['no_cert'] ?? '-',
                 $r['tgl_cert'] ?? '-',
-                $r['komo_eng'] ?? '-',
-                $r['jml_berat'] ?? '-',
+                $r['komo_eng'] ?? '-', 
+                (float) ($r['jml_berat'] ?? 0),
                 $r['satuan'] ?? '-',
                 $r['neg_asal'] ?? '-',
                 $r['tujuan'] ?? '-',

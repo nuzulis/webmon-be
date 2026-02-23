@@ -58,6 +58,11 @@ class Master extends CI_Controller {
         $this->db->order_by('nama', 'ASC');
         $this->db->limit(3000); 
 
+    } elseif ($table_name === 'master_negara') {
+        $this->db->select('id, kode, nama');
+        $this->db->from($table_name);
+        $this->db->order_by('nama', 'ASC');
+
     } else {
         $this->db->select('id, nama');
         $this->db->from($table_name);
