@@ -19,6 +19,16 @@ class MY_Controller extends CI_Controller
     public function __construct()
     {
         parent::__construct();
+
+        header('Access-Control-Allow-Origin: *');
+        header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+        if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+            header('HTTP/1.1 200 OK');
+            exit;
+        }
+
         $this->db_ums = $this->load->database('ums', TRUE);
         $this->load->library('user_agent');
         $this->load->helper(['jwt', 'url']);
@@ -50,7 +60,7 @@ class MY_Controller extends CI_Controller
         $map = [
             'operasional' => [
                 'permohonan', 'monitoring', 'domasonline', 'transaksi', 'revisi',
-                'perlakuan', 'serahterima', 'batalpermohonan',
+                'perlakuan', 'serahterima', 'batalpermohonan', 'pelepasanblmbyr',
                 'nnc',  'detail'
             ],
             'tindakan' => [

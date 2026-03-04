@@ -478,7 +478,10 @@ private function ev_pemusnahan($ptk_id)
         ->join('master_pegawai ui', 'ui.id = ba.user_id', 'left') 
         ->join('master_pegawai ua', 'ua.id = ba.user_asal_id', 'left')
         ->where('ba.ptk_id', $ptk_id)
-        ->where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_start()
+            ->where('ba.deleted_at IS NULL', null, false)
+            ->or_where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_end()
         ->get()
         ->result_array();
 
@@ -487,7 +490,7 @@ private function ev_pemusnahan($ptk_id)
         'BA',
         'serah',
         'Serah Media Pembawa',
-        fn($r) => $this->link('serahterima/ba', $r['id'])
+        fn($r) => $this->link('preborder/k15', $r['id'])
     );
 }
 
@@ -499,7 +502,10 @@ private function ev_terima($ptk_id)
         ->join('master_pegawai ui', 'ui.id = ba.user_id', 'left') 
         ->join('master_pegawai ut', 'ut.id = ba.user_tujuan_id', 'left')
         ->where('ba.ptk_id_penerima', $ptk_id)
-        ->where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_start()
+            ->where('ba.deleted_at IS NULL', null, false)
+            ->or_where('ba.deleted_at', '1970-01-01 08:00:00')
+        ->group_end()
         ->get()
         ->result_array();
 
@@ -508,7 +514,7 @@ private function ev_terima($ptk_id)
         'BA',
         'terima',
         'Terima Media Pembawa',
-        fn($r) => $this->link('serahterima/ba', $r['id'])
+        fn($r) => $this->link('preborder/k15', $r['id'])
     );
 }
 
@@ -560,10 +566,11 @@ private function ev_terima($ptk_id)
             }
 
             $events[] = [
-                'kode' => 'K15',
+                'kode' => 'K91',
                 'jenis' => 'pelepasan',
                 'judul' => $isBatal ? 'Pelepasan (Dibatalkan)' : 'Pelepasan',
                 'nomor' => $r['nomor'] ?? null,
+                'nomor_seri' => $r['nomor_seri'] ?? null,
                 'tanggal' => $r['tanggal'] ?? null,
                 'waktu_input' => $r['created_at'],
                 'user_input' => $r['user_input'] ?? null,

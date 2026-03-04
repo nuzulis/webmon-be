@@ -78,7 +78,8 @@ class Dashboard_model extends CI_Model
     ";
 
     $allBinds = array_merge($binds, $binds, $binds);
-    $resultRaw = $db->query($sql, $allBinds)->result_array();
+    $q = $db->query($sql, $allBinds);
+    $resultRaw = $q ? $q->result_array() : [];
     $data = ['penahanan' => 0, 'penolakan' => 0, 'pemusnahan' => 0];
     foreach ($resultRaw as $row) {
         $data[$row['tipe']] = (int)$row['total'];
@@ -109,7 +110,8 @@ class Dashboard_model extends CI_Model
 
     $db->group_by('p.jenis_permohonan');
     
-    $raw = $db->get()->result_array();
+    $q = $db->get();
+    $raw = $q ? $q->result_array() : [];
 
     $map = [
         'DM' => 'Domestik Masuk', 'DK' => 'Domestik Keluar',
@@ -138,19 +140,23 @@ class Dashboard_model extends CI_Model
     $bindings = [];
 
     foreach ($maps as $kar => $tbl) {
+        $uptClause = $uptId ? " AND p.kode_satpel LIKE ?" : "";
         $sql = "
-            SELECT '$kar' as tipe, MONTH(p1.waktu_periksa) as bulan_idx, 
-                   AVG(TIMESTAMPDIFF(HOUR, p1.waktu_periksa, p8.tanggal)) as sla_val
-            FROM ptk p
-            JOIN pn_fisik_kesehatan p1 ON p.id = p1.ptk_id
-            JOIN $tbl p8 ON p.id = p8.ptk_id
-            WHERE p.jenis_permohonan = ? 
-              AND p.is_verifikasi = 1 AND p.is_batal = 0 
-              AND p.deleted_at = '1970-01-01 08:00:00'
-              AND p1.waktu_periksa >= ? AND p1.waktu_periksa < ?
-              AND p8.tanggal > p1.waktu_periksa
-              " . ($uptId ? " AND p.kode_satpel LIKE ?" : "") . "
-            GROUP BY MONTH(p1.waktu_periksa)
+            SELECT '$kar' as tipe, MONTH(fk.waktu_periksa) as bulan_idx,
+                   AVG(TIMESTAMPDIFF(HOUR, fk.waktu_periksa, p8.tanggal)) as sla_val
+            FROM (
+                SELECT p.id, MIN(p1.waktu_periksa) as waktu_periksa
+                FROM ptk p
+                JOIN pn_fisik_kesehatan p1 ON p.id = p1.ptk_id
+                WHERE p.jenis_permohonan = ?
+                  AND p.is_verifikasi = 1 AND p.is_batal = 0
+                  AND p.deleted_at = '1970-01-01 08:00:00'
+                  AND p1.waktu_periksa >= ? AND p1.waktu_periksa < ?
+                  $uptClause
+                GROUP BY p.id
+            ) fk
+            JOIN $tbl p8 ON fk.id = p8.ptk_id AND p8.tanggal > fk.waktu_periksa
+            GROUP BY MONTH(fk.waktu_periksa)
         ";
 
         $bindings[] = $jenis;
@@ -162,7 +168,9 @@ class Dashboard_model extends CI_Model
     }
 
     $finalSql = implode(" UNION ALL ", $queries);
-    $resultRaw = $db->query($finalSql, $bindings)->result_array();
+    $queryResult = $db->query($finalSql, $bindings);
+    if (!$queryResult) return [];
+    $resultRaw = $queryResult->result_array();
     
 
         $output = ['kt' => array_fill(1, 12, 0), 'kh' => array_fill(1, 12, 0), 'ki' => array_fill(1, 12, 0)];
@@ -189,26 +197,40 @@ class Dashboard_model extends CI_Model
         $kar = strtolower($filter['karantina'] ?? 'kt');
         $pelepasan = ['kt'=>'pn_pelepasan_kt','kh'=>'pn_pelepasan_kh','ki'=>'pn_pelepasan_ki'][$kar];
         $komoditas = ['kt'=>'komoditas_tumbuhan','kh'=>'komoditas_hewan','ki'=>'komoditas_ikan'][$kar];
-
+    
         $db->select('p.id, mn.nama as negara_nama');
         $db->from('ptk p');
         $db->join("$pelepasan p8", 'p.id = p8.ptk_id');
-        
         $joinCol = ($jenis === 'EX') ? 'p.negara_tujuan_id' : 'p.negara_asal_id';
         $db->join('master_negara mn', "$joinCol = mn.id", 'left');
-
         $this->basePtkFilter($db, $filter);
         $db->where('p.jenis_permohonan', $jenis);
+        $db->where('p8.deleted_at', '1970-01-01 08:00:00');
         $db->where('p8.created_at >=', $rng['start']);
         $db->where('p8.created_at <',  $rng['end']);
         $subquery = $db->get_compiled_select();
 
-        $sql = "SELECT COUNT(pk.ptk_id) as frekuensi, k.nama as komoditi, t.negara_nama as negara
+        $allowed_satuan = ['Kilogram', 'Ton', 'Ekor', 'Batang', 'Meter Kubik'];
+
+        if (!empty($filter['satuan']) && $filter['satuan'] !== 'all') {
+            $whereSql = "WHERE ms.nama = " . $db->escape($filter['satuan']);
+        } else {
+            $whereSql = "WHERE ms.nama IN (" . implode(',', array_map([$db, 'escape'], $allowed_satuan)) . ")";
+        }
+
+        $sql = "SELECT
+                    SUM(pk.volume_lain) as total_volume,
+                    ms.nama as satuan,
+                    k.nama as komoditi,
+                    COALESCE(t.negara_nama, '-') as negara
                 FROM ptk_komoditas pk
                 JOIN ($subquery) t ON pk.ptk_id = t.id
                 JOIN $komoditas k ON pk.komoditas_id = k.id
-                GROUP BY k.nama, t.negara_nama
-                ORDER BY frekuensi DESC LIMIT " . (int)($filter['limit'] ?? 5);
+                LEFT JOIN master_satuan ms ON pk.satuan_lain_id = ms.id
+                $whereSql
+                GROUP BY k.nama, t.negara_nama, ms.nama
+                ORDER BY total_volume DESC
+                LIMIT " . (int)($filter['limit'] ?? 5);
 
         return $db->query($sql)->result_array();
     }
