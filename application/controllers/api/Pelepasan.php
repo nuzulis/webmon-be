@@ -81,7 +81,7 @@ class Pelepasan extends MY_Controller
             'Nomor Dokumen', 'Nomor Seri', 'Tgl Dokumen', 'Klasifikasi', 'Komoditas', 'Nama Tercetak', 'Kode HS',
             'Vol P1', 'Vol P2', 'Vol P3', 'Vol P4', 'Vol P5', 'Vol P6', 'Vol P7', 'Vol P8', 'Vol Lain',
             'Netto P1', 'Netto P2', 'Netto P3', 'Netto P4', 'Netto P5', 'Netto P6', 'Netto P7', 'Netto P8',
-            'Satuan', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
+            'Satuan Netto', 'Satuan Bruto', 'Satuan Lain', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
         ];
 
         $exportData = [];
@@ -157,8 +157,9 @@ class Pelepasan extends MY_Controller
                 (float) ($r['net_p6'] ?? 0), 
                 (float) ($r['net_p7'] ?? 0), 
                 (float) ($r['net_p8'] ?? 0),
-
-                $r['satuan'],
+                $r['satuan_netto'] ?? '-',
+                $r['satuan_bruto'] ?? '-',
+                $r['satuan_lain'] ?? '-',
                 (float) ($r['harga_rp'] ?? 0),
                 $r['kontainer_string'] ?? '-',
                 $r['dokumen_pendukung_string'] ?? '-'

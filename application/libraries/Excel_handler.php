@@ -16,7 +16,7 @@ class Excel_handler {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $currentRow = 1;
-        foreach (['judul', 'upt', 'periode', 'pencetak', 'source', 'report_id'] as $key) {
+        foreach (['judul', 'upt', 'lingkup', 'periode', 'pencetak', 'source', 'report_id'] as $key) {
             if (!empty($reportInfo[$key])) {
                 $sheet->setCellValue('A' . $currentRow, $reportInfo[$key]);
                 if ($key == 'judul') $sheet->getStyle('A' . $currentRow)->getFont()->setBold(true)->setSize(14);

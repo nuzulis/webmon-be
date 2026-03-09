@@ -230,22 +230,36 @@ class MY_Controller extends CI_Controller
 
     protected function buildReportHeader(string $title, array $filters, array $data = []): array
     {
-        $uptName = 'SEMUA UPT';
-        if (!empty($filters['upt_id']) && $filters['upt_id'] !== 'all') {
+        $uptFilter = $filters['upt'] ?? $filters['upt_id'] ?? null;
+        $uptName   = 'SEMUA UPT';
+        if (!empty($uptFilter) && $uptFilter !== 'all') {
             if (!empty($data) && isset($data[0]['upt'])) {
                 $uptName = $data[0]['upt'];
+            } else {
+                $uptName = 'UPT ' . $uptFilter;
             }
-            elseif (!empty($this->user['upt'])) {
-                $uptName = 'UPT ' . $this->user['upt'];
-            }
-            else {
-                $uptName = 'UPT';
-            }
+        }
+
+        $lingkupMap = [
+            'EX' => 'Ekspor',
+            'IM' => 'Impor',
+            'DK' => 'Domestik Keluar',
+            'DM' => 'Domestik Masuk',
+        ];
+
+        $lingkupRow = null;
+        if (!empty($filters['lingkup'])) {
+            $code = strtoupper(trim($filters['lingkup']));
+            $lingkupRow = 'Lingkup : ' . ($lingkupMap[$code] ?? $filters['lingkup']);
+        } elseif (!empty($filters['jenis_permohonan'])) {
+            $code = strtoupper(trim($filters['jenis_permohonan']));
+            $lingkupRow = 'Jenis Permohonan : ' . ($lingkupMap[$code] ?? $filters['jenis_permohonan']);
         }
 
         return [
             'judul'     => strtoupper($title),
             'upt'       => strtoupper($uptName),
+            'lingkup'   => $lingkupRow,
             'periode'   => "PERIODE {$filters['start_date']} S/D {$filters['end_date']}",
             'pencetak'  => "Waktu Cetak: " . date('Y-m-d H:i:s') .
                            " | Oleh: " . ($this->user['nama'] ?? 'Admin'),
