@@ -76,7 +76,9 @@ class Dashboard extends MY_Controller
         $cacheKey = "sla_v2_{$jenis}_{$uptId}_{$filter['year']}";
         if (!$data = $this->cache->get($cacheKey)) {
             $data = $this->Dashboard_model->get_sla_combined($jenis, $filter);
-            $this->cache->save($cacheKey, $data, 3600);
+            if (!empty(array_filter(array_merge(...array_values($data)), fn($v) => $v > 0))) {
+                $this->cache->save($cacheKey, $data, 3600);
+            }
         }
 
         return $this->jsonRes(200, [
@@ -114,12 +116,7 @@ class Dashboard extends MY_Controller
     $month = $this->input->get('month') ?? date('m');
 
     $result = $this->Dashboard_model->get_potensi_simponi($uptId, $year, $month);
-
-    // Jika Anda menggunakan MY_Controller yang punya fungsi jsonRes
     return $this->jsonRes(200, $result);
-
-    // Atau jika menggunakan json standar:
-    // return $this->json($result);
 }
 
     public function top_komoditi()
