@@ -169,7 +169,9 @@ public function getIds(array $f, int $limit, int $offset): array {
             p8.nomor AS nkt, p8.tanggal AS tanggal_lepas,
             mu_asal.nama AS upt_asal, mu_asal.nama_satpel AS satpel_asal,
             target_upt.nama AS upt_tujuan, target_upt.nama_satpel AS satpel_tujuan,
-            p.nama_pengirim, p.nama_penerima,
+            p.nama_pemohon, p.nama_pengirim, p.nama_penerima,
+            p.alamat_pemohon, p.alamat_pengirim, p.alamat_penerima,
+            mn3.nama AS kota_asal, mn4.nama AS kota_tujuan,
             kom.nama AS komoditas,
             pkom.volume_lain AS volume,
             ms.nama AS satuan,
@@ -186,6 +188,8 @@ public function getIds(array $f, int $limit, int $offset): array {
             ->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left')
             ->join('master_pelabuhan mp', 'p.pelabuhan_bongkar_id = mp.id', 'left')
             ->join('master_upt target_upt', 'mp.kode_upt = target_upt.id', 'left')
+            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
+            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left')
             ->join('ptk dm', 'p.id = dm.ptk_asal_id', 'left');
 
         $this->applyManualFilter($f);

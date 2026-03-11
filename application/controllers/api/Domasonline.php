@@ -60,7 +60,9 @@ class Domasonline extends MY_Controller
 
         $headers = [
             'No.', 'Status', 'No. Sertifikat (Asal)', 'Tgl Lepas', 'UPT Asal', 'UPT Tujuan (Bongkar)',
-            'Nama Pengirim', 'Nama Penerima', 'Komoditas', 'Volume', 'Satuan', 
+            'Nama Pemohon', 'Nama Pengirim', 'Alamat Pemohon', 'Alamat Pengirim', 'Kota Asal',
+            'Nama Penerima', 'Alamat Penerima', 'Kota Tujuan',
+            'Komoditas', 'Volume', 'Satuan',
             'No. Permohonan Masuk (DM)', 'Tgl Diterima'
         ];
 
@@ -72,14 +74,20 @@ class Domasonline extends MY_Controller
             $isIdem = ($r['id'] === $lastId);
             $volumeAngka = isset($r['volume']) ? (float) $r['volume'] : 0;
             $exportData[] = [
-                $isIdem ? '' : $no++, 
+                $isIdem ? '' : $no++,
                 $r['status_penerimaan'],
                 $r['nkt'],
                 $r['tanggal_lepas'],
                 $r['upt_asal'] . ' - ' . $r['satpel_asal'],
                 $r['upt_tujuan'] . ' - ' . $r['satpel_tujuan'],
+                $r['nama_pemohon'],
                 $r['nama_pengirim'],
+                $r['alamat_pemohon'] ?? '',
+                $r['alamat_pengirim'] ?? '',
+                $r['kota_asal'] ?? '',
                 $r['nama_penerima'],
+                $r['alamat_penerima'] ?? '',
+                $r['kota_tujuan'] ?? '',
                 $r['komoditas'],
                 $volumeAngka,
                 $r['satuan'],
