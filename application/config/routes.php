@@ -72,6 +72,7 @@ $route['api/elab/detail/(:any)'] = 'ElabDetail/detail/$1';
 $route['api/pemeriksaanlapangan'] = 'api/PeriksaLapangan/index';
 $route['pemeriksaan-lapangan/detail/(:any)'] = 'PeriksaLapangan/detail/$1';
 $route['api/ecertDetail/view'] = 'EcertDetail/view';
+$route['api/ecertDetail/detail'] = 'EcertDetail/detail';
 $route['api/system/info'] = 'api/system/info';
 
 
