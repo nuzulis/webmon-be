@@ -2,7 +2,7 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 require_once APPPATH . 'models/BaseModelStrict.php';
 
-class Revisi_model extends BaseModelStrict
+class BatalSertif_model extends BaseModelStrict
 {
     private function getPelepasanTable($karantina) {
         $map = ['H' => 'pn_pelepasan_kh', 'I' => 'pn_pelepasan_ki', 'T' => 'pn_pelepasan_kt'];
@@ -23,7 +23,6 @@ class Revisi_model extends BaseModelStrict
             $this->db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
         $this->db->where('p8.nomor_seri IS NOT NULL', null, false);
-        $this->db->where("p8.nomor_seri != '*******'", null, false);
         if (!empty($f['search'])) {
             $q = $f['search'];
             $this->db->group_start();
@@ -41,8 +40,7 @@ class Revisi_model extends BaseModelStrict
 
     private function applyHaving() {
         $wkt = '1970-01-01 08:00:00';
-        $this->db->having("SUM(p8.deleted_at = '$wkt') >= 1", null, false);
-        $this->db->having("SUM(p8.deleted_at != '$wkt') >= 1", null, false);
+        $this->db->having("SUM(p8.deleted_at = '$wkt') = 0", null, false);
     }
 
     public function getIds(array $f, int $limit, int $offset): array {
@@ -128,6 +126,7 @@ class Revisi_model extends BaseModelStrict
         $this->db->order_by('tgl_dok', strtoupper($sortOrder) === 'ASC' ? 'ASC' : 'DESC');
         return $this->db->get()->result_array();
     }
+
     public function getFullData(array $f): array {
         $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
         $wkt   = '1970-01-01 08:00:00';
@@ -156,7 +155,7 @@ class Revisi_model extends BaseModelStrict
 
         $this->applyFilters($f, $table, true);
         $this->db->where("p8.deleted_at != '$wkt'", null, false);
-        $this->db->where("EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
+        $this->db->where("NOT EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
 
         $sortCol   = (($f['sort_by'] ?? '') === 'no_dok') ? 'p8.nomor' : 'p8.tanggal';
         $sortOrder = strtoupper($f['sort_order'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';

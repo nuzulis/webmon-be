@@ -1,6 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
+ini_set('memory_limit', '512M');
 /**
  * @property CI_Input             $input
  * @property CI_Session           $session
@@ -80,8 +80,6 @@ class KwitansiBatal extends MY_Controller
                 'message' => 'Data tidak ditemukan'
             ], 404);
         }
-
-        // 17 Kolom persis seperti urutan HTML Anda
         $headers = [
             'No.', 
             'UPT', 

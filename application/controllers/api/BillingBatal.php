@@ -1,6 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
+ini_set('memory_limit', '512M');
 /**
  * @property BillingBatal_model $BillingBatal_model
  * @property Excel_handler $excel_handler

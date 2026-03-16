@@ -30,14 +30,13 @@ class Penugasan extends MY_Controller
 
         $page    = max((int) $this->input->get('page'), 1);
         $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Penugasan_model->getIds($filters, $perPage, $offset);
-        $data  = $this->Penugasan_model->getByIds($ids);
-        $total = $this->Penugasan_model->countAll($filters);
+
+        $result = $this->Penugasan_model->getPaginated($filters, $page, $perPage);
+        $total  = $result['total'];
 
         return $this->json([
             'success' => true,
-            'data'    => $data,
+            'data'    => $result['data'],
             'meta'    => [
                 'page'       => $page,
                 'per_page'   => $perPage,

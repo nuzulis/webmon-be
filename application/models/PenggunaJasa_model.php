@@ -95,16 +95,22 @@ public function getIds(array $f, int $limit, int $offset): array
     {
         $this->db->where('r.status', 'DISETUJUI');
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined', '1000'])) {
-            $upt = $f['upt'];
-            $prefix = substr($upt, 0, 2);
-            
+            $prefix = substr($f['upt'], 0, 2);
             $this->db->group_start();
                 $this->db->like('mu.kode_upt', $prefix, 'after');
                 $this->db->or_like('r.master_upt_id', $prefix, 'after');
             $this->db->group_end();
         }
-        if (!empty($f['permohonan'])) {
-            $this->db->like('pj.lingkup_aktifitas', strtoupper($f['permohonan']));
+        if (!empty($f['permohonan']) && $f['permohonan'] !== 'all') {
+            $mapping = [
+                'IM' => 'Import',
+                'EX' => 'Export',
+                'DK' => 'Domestik Keluar',
+                'DM' => 'Domestik Masuk'
+            ];
+            $searchTerm = isset($mapping[$f['permohonan']]) ? $mapping[$f['permohonan']] : $f['permohonan'];
+            
+            $this->db->like('pj.lingkup_aktifitas', $searchTerm);
         }
         if (!empty($f['search'])) {
             $s = $this->db->escape_like_str(trim($f['search']));

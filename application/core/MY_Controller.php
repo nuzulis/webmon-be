@@ -60,7 +60,7 @@ class MY_Controller extends CI_Controller
         $map = [
             'operasional' => [
                 'permohonan', 'monitoring', 'domasonline', 'transaksi', 'revisi',
-                'perlakuan', 'serahterima', 'batalpermohonan', 'pelepasanblmbyr',
+                'perlakuan', 'serahterima', 'batalpermohonan', 'batalsertif', 'pelepasanblmbyr',
                 'nnc',  'detail'
             ],
             'tindakan' => [

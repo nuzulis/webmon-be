@@ -5,14 +5,14 @@ ini_set('memory_limit', '512M');
  * @property CI_Input        $input
  * @property CI_Output       $output
  * @property CI_Config       $config
- * @property Revisi_model    $Revisi_model
+ * @property BatalSertif_model    $BatalSertif_model
  * @property Excel_handler   $excel_handler
  */
-class Revisi extends MY_Controller
+class BatalSertif extends MY_Controller
 {
     public function __construct() {
         parent::__construct();
-        $this->load->model('Revisi_model');
+        $this->load->model('BatalSertif_model');
         $this->load->library('excel_handler');
     }
 
@@ -40,9 +40,9 @@ class Revisi extends MY_Controller
             'sort_order' => $sortOrder,
         ];
 
-        $ids   = $this->Revisi_model->getIds($filter, $limit, $offset);
-        $data  = $ids ? $this->Revisi_model->getByIds($ids, $filter['karantina'], $sortBy, $sortOrder) : [];
-        $total = $this->Revisi_model->countAll($filter);
+        $ids   = $this->BatalSertif_model->getIds($filter, $limit, $offset);
+        $data  = $ids ? $this->BatalSertif_model->getByIds($ids, $filter['karantina'], $sortBy, $sortOrder) : [];
+        $total = $this->BatalSertif_model->countAll($filter);
 
         return $this->output->set_content_type('application/json')
             ->set_output(json_encode([
@@ -74,12 +74,12 @@ class Revisi extends MY_Controller
             'sort_order' => $this->input->get('sort_order', true),
         ];
 
-        $rows = $this->Revisi_model->getFullData($filters);
+        $rows = $this->BatalSertif_model->getFullData($filters);
 
         $headers = [
             'No', 'Sumber', 'No. Aju', 'No. Dok Permohonan', 'Tgl Dok Permohonan',
-            'UPT', 'Satpel', 'No. Dokumen Revisi', 'No. Seri', 'Tgl Dokumen',
-            'Alasan Hapus/Revisi', 'Waktu Hapus', 'Penandatangan', 'Petugas Hapus'
+            'UPT', 'Satpel', 'No. Dokumen Batal', 'No. Seri', 'Tgl Dokumen',
+            'Alasan Batal', 'Waktu Batal', 'Penandatangan', 'Petugas Hapus'
         ];
 
         $exportData = [];
@@ -102,8 +102,8 @@ class Revisi extends MY_Controller
             $lastAju = $r['no_aju'];
         }
 
-        $title      = "LAPORAN REVISI - " . $filters['karantina'];
+        $title      = "LAPORAN PEMBATALAN SERTIFIKAT - " . $filters['karantina'];
         $reportInfo = $this->buildReportHeader($title, $filters);
-        return $this->excel_handler->download("Laporan_Revisi_Dokumen", $headers, $exportData, $reportInfo);
+        return $this->excel_handler->download("Laporan_Batal_Sertifikat", $headers, $exportData, $reportInfo);
     }
 }

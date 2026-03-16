@@ -361,7 +361,7 @@ class Caridokumen_model extends CI_Model {
         if (empty($item['nomor_p8'])) continue;
 
         $push(
-            'Pembebasan',
+            'Pelepasan',
             $item['nomor_p8'],
             $item['tgl_p8'],
             $item['nama_p8'],

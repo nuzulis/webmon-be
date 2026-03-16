@@ -1,6 +1,6 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
-
+ini_set('memory_limit', '512M');
 /**
  * @property CI_Input           $input
  * @property PenggunaJasa_model $PenggunaJasa_model

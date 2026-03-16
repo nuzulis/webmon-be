@@ -35,29 +35,25 @@ class Pelepasan_model extends BaseModelStrict
         };
     }
 
-public function getIds(array $f, int $limit, int $offset): array
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $table = $this->getTable($f['karantina']);
-        $this->db->select('p.id, MAX(p8.tanggal) as tgl_lepas', false); 
+        $this->db->select('p.id, MAX(p8.tanggal) as tgl_lepas', false);
         $this->db->from('ptk p');
         $this->db->join("$table p8", 'p.id = p8.ptk_id');
-        $this->applyManualFilters($f, $table);
+        $this->applyFilter($f);
         $this->db->group_by('p.id');
-        $sortBy = $f['sort_by'] ?? 'tgl_lepas';
-        $sortOrder = $f['sort_order'] ?? 'DESC';
 
-        if ($sortBy === 'tgl_lepas') {
-            $this->db->order_by('tgl_lepas', $sortOrder);
-        } elseif ($sortBy === 'no_aju') {
-            $this->db->order_by('p.no_aju', $sortOrder);
-        } elseif ($sortBy === 'no_dok') {
-            $this->db->order_by('p.no_dok_permohonan', $sortOrder);
-        } else {
-             $this->db->order_by('tgl_lepas', 'DESC');
-        }
+        $sortMap = [
+            'tgl_lepas' => 'tgl_lepas',
+            'no_aju'    => 'p.no_aju',
+            'no_dok'    => 'p.no_dok_permohonan',
+        ];
+        $this->applySorting($f['sort_by'] ?? null, $f['sort_order'] ?? 'DESC', $sortMap, ['tgl_lepas', 'DESC']);
 
         $this->db->limit($limit, $offset);
 
+        $this->db->reconnect();
         $query = $this->db->get();
         if (!$query) return [];
 
@@ -131,8 +127,9 @@ public function getIds(array $f, int $limit, int $offset): array
         $this->db->from('ptk p')
             ->join("$table p8", 'p.id = p8.ptk_id');
 
-        $this->applyManualFilters($f, $table);
+        $this->applyFilter($f);
 
+        $this->db->reconnect();
         $res = $this->db->get()->row();
         return $res ? (int) $res->total : 0;
     }
@@ -193,67 +190,60 @@ public function getIds(array $f, int $limit, int $offset): array
         ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
         ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-    $this->applyManualFilters($f, $table);
+    $this->applyFilter($f);
     $this->db->order_by('p.id', 'ASC');
     $this->db->order_by('pkom.id', 'ASC');
 
     return $this->db->get()->result_array();
 }
 
-    private function applyManualFilters($f, $table)
-{
-    $this->db->where([
-        'p.is_verifikasi' => '1',
-        'p.is_batal'      => '0',
-        'p8.deleted_at'   => '1970-01-01 08:00:00',
-    ])->where("p8.nomor_seri != '*******'", null, false);
-    if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'])) {
-        if (strlen($f['upt']) <= 4) {
-            $this->db->group_start()
-                     ->where("p.upt_id", $f['upt'])
-                     ->or_like("p.kode_satpel", $f['upt'], 'after')
-                     ->group_end();
-        } else {
-            $this->db->where("p.kode_satpel", $f['upt']);
+    private function applyFilter($f)
+    {
+        $this->db->where([
+            'p.is_verifikasi' => '1',
+            'p.is_batal'      => '0',
+            'p8.deleted_at'   => '1970-01-01 08:00:00',
+        ])->where("p8.nomor_seri != '*******'", null, false);
+
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field = (substr($f['upt'], -2) === '00') ? 'p.upt_id' : 'p.kode_satpel';
+            $this->db->where($field, $f['upt']);
+        }
+
+        if (!empty($f['lingkup']) && strtolower($f['lingkup']) !== 'all') {
+            $this->db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
+        }
+
+        $this->applyDateFilter('p8.tanggal', $f);
+
+        if (!empty($f['search'])) {
+            $s = $this->db->escape_str($this->db->escape_like_str(trim($f['search'])));
+
+            $this->db->group_start();
+                $this->db->where("p.no_aju LIKE '%{$s}%' ESCAPE '!'", null, false);
+                $this->db->or_where("p.no_dok_permohonan LIKE '%{$s}%' ESCAPE '!'", null, false);
+                $this->db->or_where("p8.nomor LIKE '%{$s}%' ESCAPE '!'", null, false);
+                $this->db->or_where("p.nama_pengirim LIKE '%{$s}%' ESCAPE '!'", null, false);
+                $this->db->or_where("p.nama_penerima LIKE '%{$s}%' ESCAPE '!'", null, false);
+                $this->db->or_where("p.nama_pemohon LIKE '%{$s}%' ESCAPE '!'", null, false);
+
+                $this->db->or_where("EXISTS (
+                    SELECT 1 FROM ptk_komoditas sk
+                    WHERE sk.ptk_id = p.id
+                    AND sk.deleted_at = '1970-01-01 08:00:00'
+                    AND (sk.nama_umum_tercetak LIKE '%{$s}%' ESCAPE '!' OR sk.kode_hs LIKE '%{$s}%' ESCAPE '!')
+                )", null, false);
+
+                $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn WHERE mn.id = p.negara_asal_id AND mn.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
+                $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn2 WHERE mn2.id = p.negara_tujuan_id AND mn2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
+                $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk WHERE mk.id = p.kota_kab_asal_id AND mk.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
+                $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk2 WHERE mk2.id = p.kota_kab_tujuan_id AND mk2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
+
+                $this->db->or_where("EXISTS (
+                    SELECT 1 FROM master_upt mu WHERE mu.id = p.kode_satpel
+                    AND (mu.nama LIKE '%{$s}%' ESCAPE '!' OR mu.nama_satpel LIKE '%{$s}%' ESCAPE '!')
+                )", null, false);
+            $this->db->group_end();
         }
     }
-    if (!empty($f['lingkup']) && strtolower($f['lingkup']) !== 'all') {
-        $this->db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
-    }
-
-    if (!empty($f['start_date']) && !empty($f['end_date'])) {
-        $this->db->where("p8.tanggal >=", $f['start_date'] . ' 00:00:00');
-        $this->db->where("p8.tanggal <=", $f['end_date'] . ' 23:59:59');
-    }
-    if (!empty($f['search'])) {
-        $search = trim($f['search']);
-        $s = $this->db->escape_str($this->db->escape_like_str($search));
-
-        $this->db->group_start();
-            $this->db->like('p.no_aju', $search);
-            $this->db->or_like('p.no_dok_permohonan', $search);
-            $this->db->or_like('p8.nomor', $search);
-            $this->db->or_like('p.nama_pengirim', $search);
-            $this->db->or_like('p.nama_penerima', $search);
-            $this->db->or_like('p.nama_pemohon', $search);
-
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM ptk_komoditas sk
-                WHERE sk.ptk_id = p.id
-                AND sk.deleted_at = '1970-01-01 08:00:00'
-                AND (sk.nama_umum_tercetak LIKE '%{$s}%' ESCAPE '!' OR sk.kode_hs LIKE '%{$s}%' ESCAPE '!')
-            )", null, false);
-
-            $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn WHERE mn.id = p.negara_asal_id AND mn.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-            $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn2 WHERE mn2.id = p.negara_tujuan_id AND mn2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-            $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk WHERE mk.id = p.kota_kab_asal_id AND mk.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-            $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk2 WHERE mk2.id = p.kota_kab_tujuan_id AND mk2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-
-            $this->db->or_where("EXISTS (
-                SELECT 1 FROM master_upt mu WHERE mu.id = p.kode_satpel
-                AND (mu.nama LIKE '%{$s}%' ESCAPE '!' OR mu.nama_satpel LIKE '%{$s}%' ESCAPE '!')
-            )", null, false);
-        $this->db->group_end();
-    }
-}
 }

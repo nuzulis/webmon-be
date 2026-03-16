@@ -536,7 +536,7 @@ private function ev_terima($ptk_id)
         }
 
         $rows = $this->db
-            ->select("p8.*, dok.kode_dok, p.jenis_permohonan, mp.nama AS user_ttd, mu.nama AS user_input")
+            ->select("p8.*, p8.deleted_at AS tgl_delete, dok.kode_dok, p.jenis_permohonan, mp.nama AS user_ttd, mu.nama AS user_input")
             ->from("{$tbl} p8")
             ->join('ptk p', 'p.id = p8.ptk_id')
             ->join('master_dokumen_karantina dok', 'dok.id = p8.dokumen_karantina_id')
@@ -551,7 +551,7 @@ private function ev_terima($ptk_id)
             $isBatal = (!empty($r['deleted_at']) && $r['deleted_at'] !== '1970-01-01 08:00:00');
 
             $link = null;
-            if (!$isBatal && !empty($r['id']) && !empty($r['kode_dok'])) {
+            if (!empty($r['id']) && !empty($r['kode_dok'])) {
                 $folder = str_replace(['.', '-'], '', $r['kode_dok']);
                 $suffix = (!empty($r['nomor_seri']) && $r['nomor_seri'] !== '*******') ? '_view2' : '_view';
                 $dokKhusus = ['37', '38', '42', '43'];
@@ -575,6 +575,7 @@ private function ev_terima($ptk_id)
                 'waktu_input' => $r['created_at'],
                 'user_input' => $r['user_input'] ?? null,
                 'user_ttd' => $r['user_ttd'] ?? null,
+                'tgl_delete' => $r['tgl_delete'] ?? null,
                 'status' => $isBatal ? 'batal' : 'aktif',
                 'alasan' => $isBatal ? ($r['alasan_delete'] ?? null) : null,
                 'owner' => null,
