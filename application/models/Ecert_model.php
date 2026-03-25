@@ -86,7 +86,7 @@ class Ecert_model extends BaseModelStrict
             ],
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_TIMEOUT        => 30
+            CURLOPT_TIMEOUT        => 120
         ]);
 
         $response = curl_exec($ch);

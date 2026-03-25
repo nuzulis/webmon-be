@@ -108,23 +108,13 @@ class Ecert extends MY_Controller
         }
 
         $title = "LAPORAN INCOMING E-CERT " . strtoupper($filters['karantina']);
-        $reportInfo = [
-            'judul'   => $title,
-            'periode' => "Periode: " . ($filters['start_date'] ?? '-') . " s/d " . ($filters['end_date'] ?? '-'),
-            'negara'  => !empty($filters['negara']) ? "Negara: " . $filters['negara'] : "Negara: Semua",
-            'upt'     => !empty($filters['upt']) && $filters['upt'] !== 'all' ? "UPT: " . $filters['upt'] : "UPT: Semua",
-            'cetak'   => "Dicetak: " . date('Y-m-d H:i:s') . " | Oleh: " . ($this->user['nama'] ?? 'Admin')
-        ];
-
+        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+        
         $this->logActivity("EXPORT EXCEL: E-Cert Periode {$filters['start_date']} s/d {$filters['end_date']}");
 
         $this->load->library('excel_handler');
-        return $this->excel_handler->download(
-            "Ecert_" . strtoupper($filters['karantina']) . "_" . date('Ymd'),
-            $headers,
-            $exportData,
-            $reportInfo
-        );
+        return $this->excel_handler->download("Ecert_" . strtoupper($filters['karantina']) . "_" . date('Ymd'), $headers, $exportData, $reportInfo);
+    
     }
 
     private function formatData(array $rows): array
