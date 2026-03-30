@@ -21,7 +21,7 @@ class CariMediaPembawa extends MY_Controller
             exit;
         }
 
-        $this->load->model('Carimediapembawa_model', 'carimediapembawa');
+        $this->load->model('CariMediaPembawa_model', 'carimediapembawa');
         $this->load->helper(['jwt']);
         $this->load->config('jwt');
         $this->load->library('excel_handler');
