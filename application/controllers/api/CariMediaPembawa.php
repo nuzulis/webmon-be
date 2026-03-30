@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * @property Carimediapembawa_model    $carimediapembawa
  * @property Excel_handler             $excel_handler
  */
-class Carimediapembawa extends MY_Controller
+class CariMediaPembawa extends MY_Controller
 {
     public function __construct()
     {
@@ -51,7 +51,7 @@ class Carimediapembawa extends MY_Controller
 
         $allowedKarantina = ['H', 'I', 'T'];
         if (!in_array($karantina, $allowedKarantina, true)) {
-            return $this->json(400, 'Jenis karantina tidak valid (H/I/T)');
+            return $this->json(400, 'Jenis karantina wajib diisi');
         }
         $rows = $this->carimediapembawa->searchMediaPembawa(
             $keyword,
@@ -77,7 +77,7 @@ class Carimediapembawa extends MY_Controller
         $karantina = strtoupper(trim($this->input->get('karantina', TRUE)));
 
         if (!$keyword) {
-            return $this->json(['success' => false, 'message' => 'Keyword pencarian wajib diisi'], 400);
+            return $this->json(['success' => false, 'message' => 'wajib diisi'], 400);
         }
 
         $allowedKarantina = ['H', 'I', 'T'];
