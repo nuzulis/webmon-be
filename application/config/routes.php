@@ -53,6 +53,9 @@ $route['api/carikuitansi'] = 'api/carikuitansi/index';
 | Examples:	my-controller/index	-> my_controller/index
 |		my-controller/my-method	-> my_controller/my_method
 */
+$route['api/cariMediaPembawa/search']       = 'api/carimediapembawa/search';
+$route['api/cariMediaPembawa/export-excel'] = 'api/carimediapembawa/export_excel';
+$route['api/cariMediaPembawa']              = 'api/carimediapembawa';
 $route['api/caridokumen/search'] = 'api/caridokumen/search';
 $route['api/caridokumen']        = 'api/caridokumen';
 $route['default_controller'] = 'welcome';

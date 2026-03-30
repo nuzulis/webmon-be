@@ -78,7 +78,7 @@ class MY_Controller extends CI_Controller
             ],
             'profiling' => ['penggunajasa'],
             'penugasan' => ['penugasan'],
-            'caricepat' => ['caridokumen'],
+            'caricepat' => ['caridokumen', 'carimediapembawa'],
         ];
 
         foreach ($map as $category => $controllers) {
