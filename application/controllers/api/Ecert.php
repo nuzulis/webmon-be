@@ -26,28 +26,13 @@ class Ecert extends MY_Controller
             'end_date'   => $this->input->get('end_date', TRUE),
             'negara'     => $this->input->get('negara', TRUE),
             'upt'        => $this->input->get('upt', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-
-        $ids   = $this->Ecert_model->getIds($filters, $perPage, $offset);
-        $data  = $this->Ecert_model->getByIds($ids);
-        $total = $this->Ecert_model->countAll($filters);
+        $data = $this->Ecert_model->getAll($filters);
 
         return $this->json([
             'success' => true,
             'data'    => $this->formatData($data),
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
         ], 200);
     }
 
@@ -121,16 +106,18 @@ class Ecert extends MY_Controller
     {
         return array_map(function ($r) {
             return [
+                'id_cert'      => $r['id_cert'] ?? '',
                 'no_cert'      => $r['no_cert'] ?? '',
                 'tgl_cert'     => $r['tgl_cert'] ?? '',
-                'komoditas'    => $r['komo_eng'] ?? '',
-                'jml_berat'    => $r['jml_berat'] ?? '',
+                'doc_type'     => $r['doc_type'] ?? '',
+                'doc_stat'     => $r['doc_stat'] ?? '',
+                'komoditas'     => $r['komo_eng'] ?? '',
                 'satuan'       => $r['satuan'] ?? '',
-                'negara_asal'  => $r['neg_asal'] ?? '',
+                'neg_asal'     => $r['neg_asal'] ?? '',
+                'port_asal'    => $r['port_asal'] ?? '',
                 'tujuan'       => $r['tujuan'] ?? '',
                 'port_tujuan'  => $r['port_tujuan'] ?? '',
                 'upt'          => $r['upt'] ?? '',
-                'id_cert'      => $r['id_cert'] ?? '',
                 'data_from'    => $r['data_from'] ?? '',
             ];
         }, $rows);

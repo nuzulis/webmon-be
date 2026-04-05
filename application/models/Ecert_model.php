@@ -13,45 +13,14 @@ class Ecert_model extends BaseModelStrict
         parent::__construct();
     }
 
-    public function getIds(array $filter, int $limit, int $offset): array
+    public function getAll(array $filter): array
     {
-        $allData = $this->fetchFromApi($filter);
-        if (empty($allData)) return [];
-
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
-        }
-        $allData = $this->sortData($allData, $filter['sort_by'] ?? 'tgl_cert', $filter['sort_order'] ?? 'DESC');
-        $total = count($allData);
-        $paginatedData = array_slice($allData, $offset, $limit);
-        $this->session->set_userdata('ecert_temp_data', $paginatedData);
-        $this->session->set_userdata('ecert_total', $total);
-        return array_keys($paginatedData);
+        return $this->fetchFromApi($filter);
     }
 
-    public function getByIds($ids)
+    public function getFullData(array $filter): array
     {
-        $cachedData = $this->session->userdata('ecert_temp_data');
-        if (!$cachedData) return [];
-
-        return array_values($cachedData);
-    }
-
-    public function countAll($filter)
-    {
-        return (int) ($this->session->userdata('ecert_total') ?: 0);
-    }
-
-    public function getFullData($filter)
-    {
-        $allData = $this->fetchFromApi($filter);
-        if (empty($allData)) return [];
-
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
-        }
-
-        return $this->sortData($allData, 'tgl_cert', 'DESC');
+        return $this->fetchFromApi($filter);
     }
 
     private function fetchFromApi($filter)
@@ -110,35 +79,4 @@ class Ecert_model extends BaseModelStrict
         return $data;
     }
 
-    private function filterBySearch($data, $search)
-    {
-        return array_filter($data, function($row) use ($search) {
-            $search = strtolower($search);
-            return (
-                stripos($row['no_cert'] ?? '', $search) !== false ||
-                stripos($row['komo_eng'] ?? '', $search) !== false ||
-                stripos($row['neg_asal'] ?? '', $search) !== false ||
-                stripos($row['tujuan'] ?? '', $search) !== false ||
-                stripos($row['port_tujuan'] ?? '', $search) !== false
-            );
-        });
-    }
-
-    private function sortData($data, $sortBy, $sortOrder)
-    {
-        $columnMap = [
-            'no_cert'     => 'no_cert',
-            'tgl_cert'    => 'tgl_cert',
-            'komoditas'   => 'komo_eng',
-            'negara_asal' => 'neg_asal',
-            'tujuan'      => 'tujuan',
-        ];
-
-        $column = $columnMap[$sortBy] ?? 'tgl_cert';
-        $order = strtoupper($sortOrder) === 'ASC' ? SORT_ASC : SORT_DESC;
-        $sortValues = array_column($data, $column);
-        array_multisort($sortValues, $order, SORT_NATURAL | SORT_FLAG_CASE, $data);
-
-        return $data;
-    }
 }
