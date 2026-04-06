@@ -15,62 +15,44 @@ class Pengasingan extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    public function index()
+    private function buildFilter(): array
     {
-        $filters = [
+        return [
             'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
-            'lingkup'    => strtoupper($this->input->get('lingkup', TRUE)),
+            'karantina'  => strtoupper($this->input->get('karantina', TRUE) ?? 'H'),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
+    }
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Pengasingan_model->getIds($filters, $perPage, $offset);
-        $rows  = $this->Pengasingan_model->getByIds($ids);
-        $total = $this->Pengasingan_model->countAll($filters);
+    public function index()
+    {
+        $filter = $this->buildFilter();
 
-        return $this->json([
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
-        ], 200);
+        if (!in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
+
+        $data = $this->Pengasingan_model->getAll($filter);
+
+        return $this->json(['success' => true, 'data' => $data]);
     }
 
     public function export_excel()
     {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
-            'lingkup'    => strtoupper($this->input->get('lingkup', TRUE)),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-        ];
-        $rows = $this->Pengasingan_model->getFullData($filters);
+        $filter = $this->buildFilter();
+        $rows   = $this->Pengasingan_model->getFullData($filter);
 
         if (empty($rows)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
         $headers = [
-            'No.', 'UPT', 'Nama Tempat', 'Tgl Mulai', 'Tgl Selesai', 
-            'Komoditas', 'Jumlah', 'Satuan', 'Target', 
-            'No. Dokumen', 'Tgl Dokumen', 'Pengamatan Ke-', 'Tgl Pengamatan', 
-            'Gejala', 'Rekomendasi', 'Rekomendasi Lanjut', 'Kondisi', 
+            'No.', 'UPT', 'Nama Tempat', 'Tgl Mulai', 'Tgl Selesai',
+            'Komoditas', 'Jumlah', 'Satuan', 'Target',
+            'No. Dokumen', 'Tgl Dokumen', 'Pengamatan Ke-', 'Tgl Pengamatan',
+            'Gejala', 'Rekomendasi', 'Rekomendasi Lanjut', 'Kondisi',
             'Petugas 1', 'Petugas 2', 'Penginput', 'Tgl Input'
         ];
 
@@ -80,7 +62,7 @@ class Pengasingan extends MY_Controller
 
         foreach ($rows as $r) {
             $isIdem = ($r['id'] === $lastId);
-            
+
             $kondisi = [];
             if ($r['bus'] > 0) $kondisi[] = "busuk " . $r['bus'];
             if ($r['rus'] > 0) $kondisi[] = "rusak " . $r['rus'];
@@ -110,14 +92,16 @@ class Pengasingan extends MY_Controller
                 $r['inputer'],
                 $r['tgl_input']
             ];
-            
+
             $lastId = $r['id'];
         }
 
-        $title = "LAPORAN PENGASINGAN DAN PENGAMATAN " . $filters['karantina'];
-        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+        $title      = "LAPORAN PENGASINGAN DAN PENGAMATAN " . $filter['karantina'];
+        $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
-        $this->logActivity("EXPORT EXCEL: Pengasingan {$filters['karantina']}");
+        $this->logActivity("EXPORT EXCEL: Pengasingan {$filter['karantina']}");
+
+        if (ob_get_length()) ob_end_clean();
 
         return $this->excel_handler->download("Laporan_Pengasingan", $headers, $exportData, $reportInfo);
     }

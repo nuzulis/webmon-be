@@ -10,167 +10,111 @@ class PenggunaJasa_model extends BaseModelStrict
         parent::__construct();
     }
 
-public function getIds(array $f, int $limit, int $offset): array
+    public function getAll(array $f): array
     {
-        $this->db->select('DISTINCT pj.id, MAX(r.created_at) as max_created', false)
-            ->from('dbregptk.registers r')
-            ->join('dbregptk.pj_barantins pj', 'r.pj_barantin_id = pj.id')
-            ->join('dbregptk.users u', 'pj.user_id = u.id', 'left')
-            ->join('barantin.master_upt mu', 'mu.id = r.master_upt_id', 'left');
+        $sql = "
+            SELECT
+                pj.id,
+                ANY_VALUE(u.id)                  AS uid,
+                ANY_VALUE(pj.user_id)            AS user_id,
+                ANY_VALUE(u.name)                AS pemohon,
+                ANY_VALUE(pre.jenis_perusahaan)  AS jenis_perusahaan,
+                ANY_VALUE(pj.nama_perusahaan)    AS nama_perusahaan,
+                ANY_VALUE(pj.jenis_identitas)    AS jenis_identitas,
+                ANY_VALUE(pj.nomor_identitas)    AS nomor_identitas,
+                ANY_VALUE(pj.nitku)              AS nitku,
+                ANY_VALUE(r.master_upt_id)       AS master_upt_id,
+                ANY_VALUE(pj.lingkup_aktifitas)  AS lingkup_aktifitas,
+                ANY_VALUE(pj.rerata_frekuensi)   AS rerata_frekuensi,
+                ANY_VALUE(pj.daftar_komoditas)   AS daftar_komoditas,
+                ANY_VALUE(pj.tempat_karantina)   AS tempat_karantina,
+                ANY_VALUE(pj.status_kepemilikan) AS status_kepemilikan,
+                ANY_VALUE(mu.nama)               AS upt,
+                ANY_VALUE(pj.email)              AS email,
+                ANY_VALUE(pj.nomor_registrasi)   AS nomor_registrasi,
+                MAX(r.created_at)                AS tgl_registrasi,
+                ANY_VALUE(r.blockir)             AS blockir
+            FROM dbregptk.pj_barantins pj
+            JOIN  dbregptk.registers r           ON pj.id = r.pj_barantin_id
+            LEFT JOIN dbregptk.users u           ON pj.user_id = u.id
+            LEFT JOIN dbregptk.pre_registers pre ON r.pre_register_id = pre.id
+            LEFT JOIN barantin.master_upt mu     ON mu.id = r.master_upt_id
+            WHERE r.status = 'DISETUJUI'
+        ";
 
-        $this->applyManualFilter($f);
-        
-        $this->db->group_by('pj.id');
-        $this->db->order_by('max_created', 'DESC');
-        
-        $this->db->limit($limit, $offset);
+        $params = [];
+        $this->applyFilter($f, $sql, $params);
+        $sql .= " GROUP BY pj.id ORDER BY MAX(r.created_at) DESC";
 
-        $res = $this->db->get()->result_array();
-        return array_column($res, 'id');
+        $this->db->reconnect();
+        $query = $this->db->query($sql, $params);
+        return $query ? $query->result_array() : [];
     }
 
-        public function getByIds($ids)
+    public function getFullData(array $f): array
     {
-        if (empty($ids)) return [];
+        return $this->getAll($f);
+    }
 
-        $CI =& get_instance();
-        $uptFilter = $CI->input->get('upt');
-        $this->db->select("
-            pj.id, 
-            ANY_VALUE(u.id) AS uid, 
-            ANY_VALUE(pj.user_id) as user_id, 
-            ANY_VALUE(u.name) AS pemohon, 
-            ANY_VALUE(pre.jenis_perusahaan) as jenis_perusahaan, 
-            ANY_VALUE(pj.nama_perusahaan) as nama_perusahaan, 
-            ANY_VALUE(pj.jenis_identitas) as jenis_identitas, 
-            ANY_VALUE(pj.nomor_identitas) as nomor_identitas, 
-            ANY_VALUE(pj.nitku) as nitku, 
-            ANY_VALUE(r.master_upt_id) as master_upt_id, 
-            ANY_VALUE(pj.lingkup_aktifitas) as lingkup_aktifitas, 
-            ANY_VALUE(pj.rerata_frekuensi) as rerata_frekuensi, 
-            ANY_VALUE(pj.daftar_komoditas) as daftar_komoditas, 
-            ANY_VALUE(pj.tempat_karantina) as tempat_karantina, 
-            ANY_VALUE(pj.status_kepemilikan) as status_kepemilikan, 
-            ANY_VALUE(mu.nama) AS upt, 
-            ANY_VALUE(pj.email) as email, 
-            ANY_VALUE(pj.nomor_registrasi) as nomor_registrasi, 
-            MAX(r.created_at) AS tgl_registrasi, 
-            ANY_VALUE(r.blockir) as blockir
-        ", false);
-
-        $this->db->from('dbregptk.pj_barantins pj')
-            ->join('dbregptk.registers r', 'pj.id = r.pj_barantin_id')
-            ->join('dbregptk.users u', 'pj.user_id = u.id', 'left')
-            ->join('dbregptk.pre_registers pre', 'r.pre_register_id = pre.id', 'left')
-            ->join('barantin.master_upt mu', 'mu.id = r.master_upt_id', 'left');
-
-        $this->db->where_in('pj.id', $ids);
-        $this->db->where('r.status', 'DISETUJUI');
-        if ($uptFilter && !in_array(strtolower($uptFilter), ['all', 'semua', '1000'])) {
-            $prefix = substr($uptFilter, 0, 2);
-            $this->db->like('r.master_upt_id', $prefix, 'after');
+    private function applyFilter(array $f, string &$sql, array &$params): void
+    {
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined', '1000'], true)) {
+            $sql     .= " AND r.master_upt_id = ?";
+            $params[] = $f['upt'];
         }
 
-        $this->db->group_by('pj.id');
-        $this->db->order_by('tgl_registrasi', 'DESC');
-
-        $res = $this->db->get();
-        return $res ? $res->result_array() : [];
-    }
-    public function countAll($f)
-    {
-        $this->db->select('COUNT(DISTINCT pj.id) AS total', false)
-            ->from('dbregptk.registers r')
-            ->join('dbregptk.pj_barantins pj', 'r.pj_barantin_id = pj.id')
-            ->join('barantin.master_upt mu', 'mu.id = r.master_upt_id', 'left')
-            ->join('dbregptk.users u', 'pj.user_id = u.id', 'left');
-
-        $this->applyManualFilter($f);
-
-        $row = $this->db->get()->row();
-        return $row ? (int) $row->total : 0;
-    }
-
-    private function applyManualFilter($f)
-    {
-        $this->db->where('r.status', 'DISETUJUI');
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined', '1000'])) {
-            $prefix = substr($f['upt'], 0, 2);
-            $this->db->group_start();
-                $this->db->like('mu.kode_upt', $prefix, 'after');
-                $this->db->or_like('r.master_upt_id', $prefix, 'after');
-            $this->db->group_end();
-        }
-        if (!empty($f['permohonan']) && $f['permohonan'] !== 'all') {
+        if (!empty($f['permohonan']) && strtolower($f['permohonan']) !== 'all') {
             $mapping = [
                 'IM' => 'Import',
                 'EX' => 'Export',
                 'DK' => 'Domestik Keluar',
-                'DM' => 'Domestik Masuk'
+                'DM' => 'Domestik Masuk',
             ];
-            $searchTerm = isset($mapping[$f['permohonan']]) ? $mapping[$f['permohonan']] : $f['permohonan'];
-            
-            $this->db->like('pj.lingkup_aktifitas', $searchTerm);
-        }
-        if (!empty($f['search'])) {
-            $s = $this->db->escape_like_str(trim($f['search']));
-            $this->db->group_start();
-                $this->db->like('pj.nama_perusahaan', $s);
-                $this->db->or_like('pj.nomor_identitas', $s);
-                $this->db->or_like('u.name', $s);
-                $this->db->or_like('mu.nama', $s);
-                $this->db->or_like('pj.nitku', $s);
-            $this->db->group_end();
+            $term     = $mapping[$f['permohonan']] ?? $f['permohonan'];
+            $sql     .= " AND pj.lingkup_aktifitas LIKE ?";
+            $params[] = '%' . $term . '%';
         }
     }
 
-    public function getFullData($f)
+    public function get_profil_lengkap($id)
     {
-        $ids = $this->getIds($f, 10000, 0); 
-        if (empty($ids)) return [];
+        $this->db->select("
+            pj.id,
+            ANY_VALUE(u.id) AS uid,
+            ANY_VALUE(pre.pemohon) as pemohon,
+            ANY_VALUE(pre.jenis_perusahaan) AS tipe_kantor,
+            ANY_VALUE(pj.jenis_perusahaan) as jenis_perusahaan,
+            ANY_VALUE(pj.nama_perusahaan) as nama_perusahaan,
+            ANY_VALUE(pj.jenis_identitas) as jenis_identitas,
+            ANY_VALUE(pj.nomor_identitas) as nomor_identitas,
+            ANY_VALUE(pj.nitku) as nitku,
+            ANY_VALUE(pj.alamat) as alamat,
+            ANY_VALUE(pj.email) as email,
+            ANY_VALUE(pj.telepon) as telepon,
+            ANY_VALUE(mu.nama) AS upt,
+            ANY_VALUE(pj.lingkup_aktifitas) as lingkup_aktifitas,
+            ANY_VALUE(pj.daftar_komoditas) as daftar_komoditas,
+            ANY_VALUE(pj.rerata_frekuensi) as rerata_frekuensi,
+            ANY_VALUE(pj.tempat_karantina) as tempat_karantina,
+            ANY_VALUE(pj.status_kepemilikan) as status_kepemilikan,
+            MAX(r.created_at) AS tgl_registrasi,
+            ANY_VALUE(r.blockir) as blockir,
+            ANY_VALUE(r.status) AS status_registrasi
+        ", false);
 
-        return $this->getByIds($ids);
+        $this->db->from('dbregptk.registers r')
+            ->join('dbregptk.pj_barantins pj', 'r.pj_barantin_id = pj.id')
+            ->join('dbregptk.users u', 'pj.user_id = u.id', 'left')
+            ->join('dbregptk.pre_registers pre', 'r.pre_register_id = pre.id', 'left')
+            ->join('barantin.master_upt mu', 'mu.id = r.master_upt_id', 'left')
+            ->where('pj.id', $id)
+            ->group_by('pj.id');
+
+        $res = $this->db->get();
+        return $res ? $res->row_array() : null;
     }
 
-   public function get_profil_lengkap($id) 
-{
-    $this->db->select("
-        pj.id, 
-        ANY_VALUE(u.id) AS uid, 
-        ANY_VALUE(pre.pemohon) as pemohon, 
-        ANY_VALUE(pre.jenis_perusahaan) AS tipe_kantor,
-        ANY_VALUE(pj.jenis_perusahaan) as jenis_perusahaan,
-        ANY_VALUE(pj.nama_perusahaan) as nama_perusahaan, 
-        ANY_VALUE(pj.jenis_identitas) as jenis_identitas, 
-        ANY_VALUE(pj.nomor_identitas) as nomor_identitas, 
-        ANY_VALUE(pj.nitku) as nitku, 
-        ANY_VALUE(pj.alamat) as alamat,
-        ANY_VALUE(pj.email) as email,
-        ANY_VALUE(pj.telepon) as telepon,
-        ANY_VALUE(mu.nama) AS upt, 
-        ANY_VALUE(pj.lingkup_aktifitas) as lingkup_aktifitas, 
-        ANY_VALUE(pj.daftar_komoditas) as daftar_komoditas, 
-        ANY_VALUE(pj.rerata_frekuensi) as rerata_frekuensi,
-        ANY_VALUE(pj.tempat_karantina) as tempat_karantina,
-        ANY_VALUE(pj.status_kepemilikan) as status_kepemilikan,
-        MAX(r.created_at) AS tgl_registrasi, 
-        ANY_VALUE(r.blockir) as blockir,
-        ANY_VALUE(r.status) AS status_registrasi
-    ", false);
-
-    $this->db->from('dbregptk.registers r')
-        ->join('dbregptk.pj_barantins pj', 'r.pj_barantin_id = pj.id')
-        ->join('dbregptk.users u', 'pj.user_id = u.id', 'left')
-        ->join('dbregptk.pre_registers pre', 'r.pre_register_id = pre.id', 'left')
-        ->join('barantin.master_upt mu', 'mu.id = r.master_upt_id', 'left')
-        ->where('pj.id', $id)
-        ->group_by('pj.id');
-    
-    $res = $this->db->get();
-    return $res ? $res->row_array() : null;
-}
-
-    public function get_history_ptk($pj_id) 
+    public function get_history_ptk($pj_id)
     {
         $this->db->select('id, no_dok_permohonan, tgl_dok_permohonan, jenis_karantina, jenis_permohonan, nama_pengirim, nama_pemohon')
             ->from('ptk')
@@ -178,19 +122,7 @@ public function getIds(array $f, int $limit, int $offset): array
             ->where('is_batal', '0')
             ->order_by('tgl_dok_permohonan', 'DESC')
             ->limit(10);
-                
-        return $this->db->get()->result_array();
-    }
-    public function getList($f, $is_export = false, $limit = 10, $offset = 0)
-    {
-        if ($is_export) return $this->getFullData($f);
-        
-        $ids = $this->getIds($f, $limit, $offset);
-        return $this->getByIds($ids);
-    }
 
-    public function countList($f)
-    {
-        return $this->countAll($f);
+        return $this->db->get()->result_array();
     }
 }

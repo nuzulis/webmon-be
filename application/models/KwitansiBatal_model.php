@@ -14,44 +14,25 @@ class KwitansiBatal_model extends BaseModelStrict
     }
 
 
-   public function getIds(array $f, int $limit, int $offset): array
+    public function getIds(array $f, int $limit, int $offset): array
     {
         $allData = $this->fetchFromApi($f);
-        if (empty($allData)) return [];
-        if (!empty($f['search'])) {
-            $allData = $this->filterBySearch($allData, $f['search']);
-        }
-        $allData = $this->sortData($allData, $f['sort_by'] ?? 'deleted_at', $f['sort_order'] ?? 'DESC');
-        $total = count($allData);
-        $paginatedData = array_slice($allData, $offset, $limit);
-        $this->session->set_userdata('kwitansi_batal_temp_data', $paginatedData);
-        $this->session->set_userdata('kwitansi_batal_total', $total);
-        return array_keys($paginatedData);
+        return array_keys(array_slice($allData, $offset, $limit));
     }
 
     public function getByIds($ids)
     {
-        $cachedData = $this->session->userdata('kwitansi_batal_temp_data');
-        if (!$cachedData) return [];
-
-        return array_values($cachedData);
+        return $ids;
     }
 
-    public function countAll($filter)
+    public function getAll($f)
     {
-        return (int) ($this->session->userdata('kwitansi_batal_total') ?: 0);
+        return $this->fetchFromApi($f);
     }
 
-    public function getFullData($filter)
+    public function getFullData($f)
     {
-        $allData = $this->fetchFromApi($filter);
-        if (empty($allData)) return [];
-
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
-        }
-
-        return $this->sortData($allData, 'deleted_at', 'DESC');
+        return $this->getAll($f);
     }
     private function fetchFromApi($f)
     {
@@ -89,41 +70,7 @@ class KwitansiBatal_model extends BaseModelStrict
         $this->_cache_data = $this->normalize($response['data']);
         return $this->_cache_data;
     }
-    private function filterBySearch($data, $search)
-    {
-        return array_filter($data, function($row) use ($search) {
-            $search = strtolower($search);
-            return (
-                stripos($row['nomor'] ?? '', $search) !== false ||
-                stripos($row['wajib_bayar'] ?? '', $search) !== false ||
-                stripos($row['kode_bill'] ?? '', $search) !== false ||
-                stripos($row['ntpn'] ?? '', $search) !== false ||
-                stripos($row['upt'] ?? '', $search) !== false ||
-                stripos($row['satpel'] ?? '', $search) !== false ||
-                stripos($row['alasan_hapus'] ?? '', $search) !== false
-            );
-        });
-    }
-
-    private function sortData($data, $sortBy, $sortOrder)
-    {
-        $columnMap = [
-            'nomor'        => 'nomor',
-            'tanggal'      => 'tanggal',
-            'wajib_bayar'  => 'wajib_bayar',
-            'total_pnbp'   => 'total_pnbp',
-            'deleted_at'   => 'deleted_at',
-            'upt'          => 'upt',
-        ];
-
-        $column = $columnMap[$sortBy] ?? 'deleted_at';
-        $order = strtoupper($sortOrder) === 'ASC' ? SORT_ASC : SORT_DESC;
-        $sortValues = array_column($data, $column);
-        array_multisort($sortValues, $order, SORT_NATURAL | SORT_FLAG_CASE, $data);
-
-        return $data;
-    }
-   private function normalize($rows)
+    private function normalize($rows)
     {
         if (!is_array($rows)) return [];
 
@@ -205,9 +152,5 @@ class KwitansiBatal_model extends BaseModelStrict
         }
         
         return json_decode($res, true);
-    }
-    public function fetch($f)
-    {
-        return $this->getFullData($f);
     }
 }

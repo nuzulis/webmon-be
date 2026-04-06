@@ -26,39 +26,13 @@ class KwitansiBatal extends MY_Controller
             'start_date'  => $this->input->get('start_date', TRUE),
             'end_date'    => $this->input->get('end_date', TRUE),
             'berdasarkan' => $this->input->get('berdasarkan', TRUE),
-            'search'      => $this->input->get('search', TRUE),
-            'sort_by'     => $this->input->get('sort_by', TRUE),
-            'sort_order'  => $this->input->get('sort_order', TRUE),
         ];
 
         $this->applyScope($filters);
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
+        $data = $this->KwitansiBatal_model->getAll($filters);
 
-        try {
-            $ids   = $this->KwitansiBatal_model->getIds($filters, $perPage, $offset);
-            $data  = $this->KwitansiBatal_model->getByIds($ids);
-            $total = $this->KwitansiBatal_model->countAll($filters);
-
-            return $this->json([
-                'success' => true,
-                'data'    => $data,
-                'meta'    => [
-                    'page'       => $page,
-                    'per_page'   => $perPage,
-                    'total'      => $total,
-                    'total_page' => (int) ceil($total / $perPage)
-                ]
-            ], 200);
-        } catch (Exception $e) {
-            log_message('error', 'KwitansiBatal Error: ' . $e->getMessage());
-            return $this->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
-        }
+        return $this->json(['success' => true, 'data' => $data], 200);
     }
 
     public function export_excel()
@@ -70,7 +44,6 @@ class KwitansiBatal extends MY_Controller
             'start_date'  => $this->input->get('start_date', TRUE),
             'end_date'    => $this->input->get('end_date', TRUE),
             'berdasarkan' => $this->input->get('berdasarkan', TRUE),
-            'search'      => $this->input->get('search', TRUE),
         ];
         $rows = $this->KwitansiBatal_model->getFullData($filters);
 

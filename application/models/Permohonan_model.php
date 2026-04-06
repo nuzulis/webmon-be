@@ -10,70 +10,27 @@ class Permohonan_model extends BaseModelStrict
         parent::__construct();
     }
 
-public function getIds(array $f, int $limit, int $offset): array
+    public function getAll(array $f): array
     {
-        $this->db->select('p.id, MAX(p.tgl_dok_permohonan) AS max_tgl', false)
-            ->from('ptk p')
-            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
-            ->join('status8p', 'p.id = status8p.id', 'left')
-            ->join('ba_penyerahan_mp ba', 'p.id = ba.ptk_id', 'left')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
-            ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left');
-        $needKomoditasJoin = !empty($f['search']);
-        if ($needKomoditasJoin) {
-            $kar = strtoupper($f['karantina'] ?? 'H');
-            $tabel_kom = "komoditas_" . ($kar == 'H' ? 'hewan' : ($kar == 'I' ? 'ikan' : 'tumbuhan'));
-            $this->db->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left');
-        }
-
-        $this->applyManualFilter($f, $needKomoditasJoin);
-        $sortMap = [
-            'no_aju'             => 'MAX(p.no_aju)',
-            'no_dok_permohonan'  => 'MAX(p.no_dok_permohonan)',
-            'tgl_dok_permohonan' => 'MAX(p.tgl_dok_permohonan)',
-            'upt'                => 'MAX(mu.nama)',
-            'satpel'             => 'MAX(mu.nama_satpel)',
-            'nama_pengirim'      => 'MAX(p.nama_pengirim)',
-            'nama_penerima'      => 'MAX(p.nama_penerima)',
-            'sla'                => 'MAX(TIMESTAMPDIFF(MINUTE, p1b.waktu_periksa, NOW()))',
-        ];
-
-        $this->applySorting(
-            $f['sort_by'] ?? null,
-            $f['sort_order'] ?? 'DESC',
-            $sortMap,
-            ['MAX(p.tgl_dok_permohonan)', 'DESC']
-        );
-
-        $this->db->group_by('p.id');
-        $this->db->limit($limit, $offset);
-
-        return array_column($this->db->get()->result_array(), 'id');
-    }
-
-    public function getByIds($ids, $karantina = 'H')
-    {
-        if (empty($ids)) return [];
-        
-        $kar = strtoupper($karantina ?: 'H');
-        $tabel_kom = "komoditas_" . ($kar == 'H' ? 'hewan' : ($kar == 'I' ? 'ikan' : 'tumbuhan'));
+        $kar       = strtoupper($f['karantina'] ?? 'H');
+        $tabel_kom = 'komoditas_' . ($kar === 'H' ? 'hewan' : ($kar === 'I' ? 'ikan' : 'tumbuhan'));
 
         $this->db->select("
-            p.id, 
-            ANY_VALUE(p.no_aju) AS no_aju, 
-            ANY_VALUE(p.no_dok_permohonan) AS no_dok_permohonan, 
+            p.id,
+            ANY_VALUE(p.no_aju) AS no_aju,
+            ANY_VALUE(p.no_dok_permohonan) AS no_dok_permohonan,
             ANY_VALUE(p.tgl_dok_permohonan) AS tgl_dok_permohonan,
-            ANY_VALUE(mu.nama) AS upt, 
+            ANY_VALUE(mu.nama) AS upt,
             ANY_VALUE(mu.nama_satpel) AS satpel,
-            ANY_VALUE(p.nama_pengirim) AS nama_pengirim, 
+            ANY_VALUE(p.nama_pengirim) AS nama_pengirim,
             ANY_VALUE(p.nama_penerima) AS nama_penerima,
             GROUP_CONCAT(DISTINCT kom.nama SEPARATOR '<br>') AS komoditas,
-            GROUP_CONCAT(DISTINCT 
-                CASE 
+            GROUP_CONCAT(DISTINCT
+                CASE
                     WHEN mh.level_risiko = 'L' THEN 'Low'
                     WHEN mh.level_risiko = 'M' THEN 'Medium'
                     WHEN mh.level_risiko = 'H' THEN 'High'
-                    ELSE mh.level_risiko 
+                    ELSE mh.level_risiko
                 END SEPARATOR '<br>'
             ) AS risiko,
             ANY_VALUE(p1b.waktu_periksa) AS tgl_periksa,
@@ -82,48 +39,25 @@ public function getIds(array $f, int $limit, int $offset): array
 
         $this->db->from('ptk p')
             ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
+            ->join('status8p', 'p.id = status8p.id', 'left')
+            ->join('ba_penyerahan_mp ba', 'p.id = ba.ptk_id', 'left')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
             ->join('master_hs mh', 'pkom.kode_hs = mh.kode', 'left')
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left')
             ->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left');
 
-        $this->db->where_in('p.id', $ids)
-                 ->group_by('p.id')
-                 ->order_by('p.tgl_dok_permohonan', 'DESC');
+        $this->applyFilter($f);
+
+        $this->db->group_by('p.id')
+                 ->order_by('MAX(p.tgl_dok_permohonan)', 'DESC');
 
         return $this->db->get()->result_array();
     }
 
-    public function countAll($f)
+    public function getForExcel(array $f): array
     {
-        $this->db->select('COUNT(DISTINCT p.id) AS total', false)
-            ->from('ptk p')
-            ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
-            ->join('status8p', 'p.id = status8p.id', 'left')
-            ->join('ba_penyerahan_mp ba', 'p.id = ba.ptk_id', 'left')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
-            ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left');
-        $needKomoditasJoin = !empty($f['search']);
-        if ($needKomoditasJoin) {
-            $kar = strtoupper($f['karantina'] ?? 'H');
-            $tabel_kom = "komoditas_" . ($kar == 'H' ? 'hewan' : ($kar == 'I' ? 'ikan' : 'tumbuhan'));
-            $this->db->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left');
-        }
-
-        $this->applyManualFilter($f, $needKomoditasJoin);
-
-        $res = $this->db->get()->row();
-        return $res ? (int) $res->total : 0;
-    }
-
-    public function getByIdsExport($ids, $karantina = 'H')
-    {
-        if (!is_array($ids) || empty($ids)) return [];
-
-        $tabel_kom = "komoditas_" . (
-            $karantina == 'H' ? 'hewan' :
-            ($karantina == 'I' ? 'ikan' : 'tumbuhan')
-        );
+        $kar       = strtoupper($f['karantina'] ?? 'H');
+        $tabel_kom = 'komoditas_' . ($kar === 'H' ? 'hewan' : ($kar === 'I' ? 'ikan' : 'tumbuhan'));
 
         $this->db->select("
             p.id,
@@ -162,6 +96,8 @@ public function getIds(array $f, int $limit, int $offset): array
 
         $this->db->from('ptk p')
             ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
+            ->join('status8p', 'p.id = status8p.id', 'left')
+            ->join('ba_penyerahan_mp ba', 'p.id = ba.ptk_id', 'left')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
             ->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left')
             ->join('master_jenis_kemasan mjk', 'p.kemasan_id = mjk.id', 'left')
@@ -173,52 +109,43 @@ public function getIds(array $f, int $limit, int $offset): array
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left')
             ->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left');
 
-        $this->db->where_in('p.id', $ids);
-        $this->db->order_by('p.no_aju', 'ASC');
-        $this->db->order_by('pkom.id', 'ASC');
+        $this->applyFilter($f);
+
+        $this->db->order_by('p.no_aju', 'ASC')
+                 ->order_by('pkom.id', 'ASC');
 
         return $this->db->get()->result_array();
     }
 
-    private function applyManualFilter($f, $hasKomoditasJoin = false)
+    private function applyFilter(array $f): void
     {
         $this->db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
             'pkom.deleted_at' => '1970-01-01 08:00:00',
-            'status8p.p6'     => null,  
-            'status8p.p7'     => null, 
-            'status8p.p8'     => null, 
-            'ba.id'           => null  
+            'status8p.p6'     => null,
+            'status8p.p7'     => null,
+            'status8p.p8'     => null,
+            'ba.id'           => null,
         ]);
+
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua'])) {
             $this->db->where('p.upt_id', $f['upt']);
         }
         if (!empty($f['karantina'])) {
             $this->db->where('p.jenis_karantina', strtoupper($f['karantina']));
         }
-        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
 
-        if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
+        $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
+        if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua'])) {
             $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
-        if (!empty($f['start_date']) && !empty($f['end_date'])) {
-            $this->db->where("DATE(p.tgl_dok_permohonan) BETWEEN '{$f['start_date']}' AND '{$f['end_date']}'");
-        }
-        if (!empty($f['search'])) {
-            $searchColumns = [
-                'p.no_aju',
-                'p.no_dok_permohonan',
-                'p.nama_pengirim',
-                'p.nama_penerima',
-                'mu.nama',
-                'mu.nama_satpel',
-            ];
-            if ($hasKomoditasJoin) {
-                $searchColumns[] = 'kom.nama';
-            }
 
-            $this->applyGlobalSearch($f['search'], $searchColumns);
+        if (!empty($f['start_date'])) {
+            $this->db->where('DATE(p.tgl_dok_permohonan) >=', $f['start_date']);
+        }
+        if (!empty($f['end_date'])) {
+            $this->db->where('DATE(p.tgl_dok_permohonan) <=', $f['end_date']);
         }
     }
 }

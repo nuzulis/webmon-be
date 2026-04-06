@@ -10,46 +10,22 @@ class BatalPermohonan_model extends BaseModelStrict
     parent::__construct();
 }
 
-public function getIds(array $f, int $limit, int $offset): array
+public function getAll(array $f): array
+{
+    $ids = $this->fetchIds($f);
+    return empty($ids) ? [] : $this->getByIds($ids);
+}
+
+private function fetchIds(array $f): array
 {
     $this->db->select('p.id', false)
         ->from('ptk p')
-        ->join('master_upt mu_search', 'p.kode_satpel = mu_search.id', 'left')
         ->where('p.is_batal', '1');
 
     $this->applyManualFilter($f);
 
-    $sortMap = [
-        'no_dok_permohonan'  => 'p.no_dok_permohonan',
-        'tgl_dok_permohonan' => 'p.tgl_dok_permohonan',
-        'tgl_batal'          => 'p.deleted_at',
-        'nama_pengirim'      => 'p.nama_pengirim',
-        'alasan_batal'       => 'p.alasan_batal',
-        'upt'                => 'mu_search.nama',
-    ];
-
-    $this->applySorting(
-        $f['sort_by'] ?? null,
-        $f['sort_order'] ?? 'DESC',
-        $sortMap,
-        ['p.deleted_at', 'DESC']
-    );
-
-    $this->db->limit($limit, $offset);
+    $this->db->group_by('p.id');
     return array_column($this->db->get()->result_array(), 'id');
-}
-
-public function countAll($f)
-{
-    $this->db->select('COUNT(*) AS total', false)
-        ->from('ptk p')
-        ->join('master_upt mu_search', 'p.kode_satpel = mu_search.id', 'left')
-        ->where('p.is_batal', '1');
-
-    $this->applyManualFilter($f);
-
-    $res = $this->db->get()->row();
-    return $res ? (int) $res->total : 0;
 }
 
     public function getByIds($ids)
@@ -106,27 +82,10 @@ public function countAll($f)
         if (!empty($f['end_date'])) {
             $this->db->where('p.tgl_dok_permohonan <=', $f['end_date']);
         }
-        if (!empty($f['search'])) {
-                $this->applyGlobalSearch($f['search'], [
-                    'p.no_dok_permohonan',
-                    'p.nama_pengirim',
-                    'p.nama_penerima',
-                    'p.alasan_batal',
-                    'mu_search.nama',
-                    'mu_search.nama_satpel'
-        ]);
-        }
     }
 
     public function getFullData($f)
     {
-        $this->db->select('p.id')
-            ->from('ptk p')
-            ->where('p.is_batal', '1');
-
-        $this->applyManualFilter($f);
-
-        $ids = array_column($this->db->get()->result_array(), 'id');
-        return $this->getByIds($ids);
+        return $this->getAll($f);
     }
 }

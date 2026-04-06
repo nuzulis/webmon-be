@@ -15,99 +15,79 @@ class Penolakan_model extends BaseModelStrict
         'alasan7' => 'Ditemukan HPHK/HPIK/OPTK',
         'alasan8' => 'Tidak bebas OPTK',
     ];
+
     public function __construct()
     {
         parent::__construct();
     }
 
-
-public function getIds(array $f, int $limit, int $offset): array
+    private function getKomTable(string $kar): string
     {
-        $this->db->select('p.id, MAX(p6.tanggal) as max_tanggal', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
-        $hasSearch = !empty($f['search']);
-        $needPegawaiJoin = $hasSearch || ($f['sort_by'] === 'petugas');
-
-        if ($needPegawaiJoin) {
-            $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left');
-        }
-
-        if ($hasSearch) {
-            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
-            $kar = strtoupper($f['karantina'] ?? 'H');
-            $kom = $kar === 'H' ? 'komoditas_hewan'
-                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
-            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
-        }
-
-        $this->applyManualFilter($f, $needPegawaiJoin, $hasSearch);
-        $sortMap = [
-            'nomor_penolakan' => 'MAX(p6.nomor)',
-            'tgl_penolakan'   => 'MAX(p6.tanggal)',
-            'no_dok'          => 'MAX(p.no_dok_permohonan)',
-            'upt'             => 'MAX(mu.nama)',
-            'nama_satpel'     => 'MAX(mu.nama_satpel)',
-            'petugas'         => 'MAX(mp.nama)',
-        ];
-
-        $this->applySorting(
-            $f['sort_by'] ?? null,
-            $f['sort_order'] ?? 'DESC',
-            $sortMap,
-            ['MAX(p6.tanggal)', 'DESC']
-        );
-
-        $this->db->group_by('p.id');
-        $this->db->limit($limit, $offset);
-
-        return array_column($this->db->get()->result_array(), 'id');
+        return match ($kar) {
+            'I' => 'komoditas_ikan',
+            'T' => 'komoditas_tumbuhan',
+            default => 'komoditas_hewan',
+        };
     }
 
-    public function getByIds($ids)
+    public function getAll(array $f): array
     {
-        if (empty($ids)) return [];
-        $CI =& get_instance();
-        $kar = strtoupper($CI->input->get('karantina', TRUE) ?? 'H');
-        $kom = $kar === 'H' ? 'komoditas_hewan'
-             : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
+        $komTable = $this->getKomTable($f['karantina'] ?? 'H');
 
-        $this->db->select("
-            p.id,
-            MAX(p.no_dok_permohonan) AS no_dok_permohonan,
-            MAX(p6.nomor) AS nomor_penolakan,
-            MAX(p6.tanggal) AS tgl_penolakan,
-            MAX(mu.nama) AS upt,
-            MAX(mu.nama_satpel) AS nama_satpel,
-            MAX(mp.nama) AS petugas,
-            GROUP_CONCAT(DISTINCT k.nama SEPARATOR '<br>') AS komoditas,
-            GROUP_CONCAT(DISTINCT pk.volumeP6 SEPARATOR '<br>') AS volume,
-            GROUP_CONCAT(DISTINCT ms.nama SEPARATOR '<br>') AS satuan,
-            MAX(p6.alasan1) AS alasan1,
-            MAX(p6.alasan2) AS alasan2,
-            MAX(p6.alasan3) AS alasan3,
-            MAX(p6.alasan4) AS alasan4,
-            MAX(p6.alasan5) AS alasan5,
-            MAX(p6.alasan6) AS alasan6,
-            MAX(p6.alasan7) AS alasan7,
-            MAX(p6.alasan8) AS alasan8,
-            MAX(p6.alasan_lain) AS alasan_lain
-        ", false);
+        $sql = "
+            SELECT
+                p.id,
+                ANY_VALUE(p.tssm_id)              AS tssm_id,
+                ANY_VALUE(p.jenis_permohonan)     AS jenis_permohonan,
+                ANY_VALUE(p.tgl_dok_permohonan)   AS tgl_dok_perm
+                MAX(p.no_dok_permohonan)           AS no_dok_permohonan,
+                MAX(p6.nomor)                      AS nomor_penolakan,
+                MAX(p6.tanggal)                    AS tgl_penolakan,
+                MAX(mu.nama_satpel)                AS nama_satpel,
+                REPLACE(REPLACE(MAX(mt.nama),
+                    'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT'),
+                    'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT') AS upt,
+                MAX(mp.nama)                       AS petugas,
+                MAX(p.nama_pengirim)               AS nama_pengirim,
+                MAX(p.nama_penerima)               AS nama_penerima,
+                MAX(mn1.nama)                      AS asal,
+                MAX(mn2.nama)                      AS tujuan,
+                MAX(mn3.nama)                      AS kota_asal,
+                MAX(mn4.nama)                      AS kota_tujuan,
+                GROUP_CONCAT(DISTINCT k.nama        SEPARATOR '<br>') AS komoditas,
+                GROUP_CONCAT(DISTINCT pk.kode_hs    SEPARATOR '<br>') AS hs,
+                GROUP_CONCAT(DISTINCT pk.volumeP6   SEPARATOR '<br>') AS volume,
+                GROUP_CONCAT(DISTINCT ms.nama       SEPARATOR '<br>') AS satuan,
+                MAX(p6.alasan1)    AS alasan1,  MAX(p6.alasan2) AS alasan2,
+                MAX(p6.alasan3)    AS alasan3,  MAX(p6.alasan4) AS alasan4,
+                MAX(p6.alasan5)    AS alasan5,  MAX(p6.alasan6) AS alasan6,
+                MAX(p6.alasan7)    AS alasan7,  MAX(p6.alasan8) AS alasan8,
+                MAX(p6.alasan_lain) AS alasan_lain
+            FROM ptk p
+            JOIN  pn_penolakan p6      ON p.id = p6.ptk_id
+            JOIN  master_pegawai mp    ON p6.user_ttd_id = mp.id
+            JOIN  master_upt mu        ON p.kode_satpel = mu.id
+            JOIN  master_upt mt        ON p.upt_id = mt.id
+            LEFT JOIN ptk_komoditas pk ON p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'
+            LEFT JOIN $komTable k      ON pk.komoditas_id = k.id
+            LEFT JOIN master_satuan ms ON pk.satuan_lain_id = ms.id
+            LEFT JOIN master_negara mn1     ON p.negara_asal_id = mn1.id
+            LEFT JOIN master_negara mn2     ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_kota_kab mn3   ON p.kota_kab_asal_id = mn3.id
+            LEFT JOIN master_kota_kab mn4   ON p.kota_kab_tujuan_id = mn4.id
+            WHERE p.is_verifikasi          = '1'
+              AND p.is_batal               = '0'
+              AND p6.deleted_at            = '1970-01-01 08:00:00'
+              AND p6.dokumen_karantina_id != '32'
+        ";
 
-        $this->db->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
-            ->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left')
-            ->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left')
-            ->join("$kom k", 'pk.komoditas_id = k.id', 'left')
-            ->join('master_satuan ms', 'pk.satuan_lain_id = ms.id', 'left');
+        $params = [];
+        $this->applyFilter($f, $sql, $params);
+        $sql .= " GROUP BY p.id ORDER BY MAX(p6.tanggal) DESC";
 
-        $this->db->where_in('p.id', $ids);
-        $this->db->group_by('p.id');
-        $this->db->order_by('tgl_penolakan', 'DESC');
-
-        $rows = $this->db->get()->result_array();
+        $this->db->reconnect();
+        $query = $this->db->query($sql, $params);
+        $rows  = $query ? $query->result_array() : [];
 
         foreach ($rows as &$r) {
             $r['alasan_string'] = $this->buildAlasan($r);
@@ -116,92 +96,68 @@ public function getIds(array $f, int $limit, int $offset): array
         return $rows;
     }
 
-    public function countAll($f)
+    public function getFullData(array $f): array
     {
-        $this->db->select('COUNT(DISTINCT p.id) total', false)
-            ->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id = p6.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left');
-        $hasSearch = !empty($f['search']);
-        $needPegawaiJoin = $hasSearch;
+        $komTable = $this->getKomTable($f['karantina'] ?? 'H');
 
-        if ($needPegawaiJoin) {
-            $this->db->join('master_pegawai mp', 'p6.user_ttd_id = mp.id', 'left');
-        }
+        $sql = "
+            SELECT
+                p.id,
+                p.tssm_id,
+                p.jenis_permohonan,
+                p.no_dok_permohonan,
+                p.tgl_dok_permohonan,
+                p6.nomor    AS nomor_penolakan,
+                p6.tanggal  AS tgl_penolakan,
+                mu.nama_satpel,
+                REPLACE(REPLACE(mt.nama,
+                    'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT'),
+                    'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT') AS upt,
+                p.nama_pengirim,
+                p.nama_penerima,
+                mp.nama       AS petugas,
+                k.nama        AS komoditas,
+                pk.kode_hs    AS hs,
+                pk.volumeP6   AS volume,
+                ms.nama       AS satuan,
+                COALESCE(p6.alasan1, '0') AS alasan1,
+                COALESCE(p6.alasan2, '0') AS alasan2,
+                COALESCE(p6.alasan3, '0') AS alasan3,
+                COALESCE(p6.alasan4, '0') AS alasan4,
+                COALESCE(p6.alasan5, '0') AS alasan5,
+                COALESCE(p6.alasan6, '0') AS alasan6,
+                COALESCE(p6.alasan7, '0') AS alasan7,
+                COALESCE(p6.alasan8, '0') AS alasan8,
+                COALESCE(p6.alasan_lain, '0') AS alasan_lain,
+                mn1.nama AS asal,
+                mn2.nama AS tujuan,
+                mn3.nama AS kota_asal,
+                mn4.nama AS kota_tujuan
+            FROM ptk p
+            JOIN  pn_penolakan p6    ON p.id = p6.ptk_id
+            JOIN  master_pegawai mp  ON p6.user_ttd_id = mp.id
+            JOIN  master_upt mu      ON p.kode_satpel = mu.id
+            JOIN  master_upt mt      ON p.upt_id = mt.id
+            JOIN  ptk_komoditas pk   ON p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'
+            JOIN  $komTable k        ON pk.komoditas_id = k.id
+            LEFT JOIN master_satuan ms    ON pk.satuan_lain_id = ms.id
+            LEFT JOIN master_negara mn1   ON p.negara_asal_id = mn1.id
+            LEFT JOIN master_negara mn2   ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_kota_kab mn3 ON p.kota_kab_asal_id = mn3.id
+            LEFT JOIN master_kota_kab mn4 ON p.kota_kab_tujuan_id = mn4.id
+            WHERE p.is_verifikasi          = '1'
+              AND p.is_batal               = '0'
+              AND p6.deleted_at            = '1970-01-01 08:00:00'
+              AND p6.dokumen_karantina_id != '32'
+        ";
 
-        if ($hasSearch) {
-            $this->db->join('ptk_komoditas pk', "p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'", 'left');
-            $kar = strtoupper($f['karantina'] ?? 'H');
-            $kom = $kar === 'H' ? 'komoditas_hewan'
-                 : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
-            $this->db->join("$kom k", 'pk.komoditas_id = k.id', 'left');
-        }
+        $params = [];
+        $this->applyFilter($f, $sql, $params);
+        $sql .= " ORDER BY p6.tanggal DESC, p.id ASC";
 
-        $this->applyManualFilter($f, $needPegawaiJoin, $hasSearch);
-
-        return (int)($this->db->get()->row()->total ?? 0);
-    }
-
-    public function getFullData($f)
-    {
-        $kar = strtoupper($f['karantina'] ?? 'H');
-        $kom = $kar === 'H' ? 'komoditas_hewan'
-             : ($kar === 'I' ? 'komoditas_ikan' : 'komoditas_tumbuhan');
-
-        $this->db->select("
-            p.id,
-            p.no_dok_permohonan,
-            p.tgl_dok_permohonan,
-            p6.nomor   AS nomor_penolakan,
-            p6.tanggal AS tgl_penolakan,
-            mu.nama    AS upt,
-            mu.nama_satpel,
-            p.nama_pengirim,
-            p.nama_penerima,
-            mp.nama AS petugas,
-            k.nama  AS komoditas,
-            pk.kode_hs AS hs,
-            pk.volumeP6 AS volume,
-            ms.nama AS satuan,
-
-            p6.alasan1,p6.alasan2,p6.alasan3,p6.alasan4,
-            p6.alasan5,p6.alasan6,p6.alasan7,p6.alasan8,
-            p6.alasan_lain
-        ", false);
-
-        $this->db->from('ptk p')
-            ->join('pn_penolakan p6', 'p.id=p6.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel=mu.id', 'left')
-            ->join('master_pegawai mp', 'p6.user_ttd_id=mp.id', 'left')
-            ->join('ptk_komoditas pk', 'p.id=pk.ptk_id')
-            ->join("$kom k", 'pk.komoditas_id=k.id')
-            ->join('master_satuan ms', 'pk.satuan_lain_id=ms.id', 'left');
-
-        $this->db->where([
-            'p.is_verifikasi' => '1',
-            'p.is_batal'      => '0',
-            'p6.deleted_at'   => '1970-01-01 08:00:00',
-            'pk.deleted_at'   => '1970-01-01 08:00:00'
-        ]);
-
-        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
-            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
-            $this->db->where($field, $f['upt']);
-        }
-
-        if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', $f['karantina']);
-        }
-        if (!empty($f['start_date'])) {
-            $this->db->where('p6.tanggal >=', $f['start_date'] . ' 00:00:00');
-        }
-        if (!empty($f['end_date'])) {
-            $this->db->where('p6.tanggal <=', $f['end_date'] . ' 23:59:59');
-        }
-
-        $rows = $this->db->order_by('p6.tanggal','DESC')
-            ->get()
-            ->result_array();
+        $this->db->reconnect();
+        $query = $this->db->query($sql, $params);
+        $rows  = $query ? $query->result_array() : [];
 
         foreach ($rows as &$r) {
             $r['alasan_string'] = $this->buildAlasan($r);
@@ -210,53 +166,30 @@ public function getIds(array $f, int $limit, int $offset): array
         return $rows;
     }
 
-    private function applyManualFilter($f, $hasPegawaiJoin = true, $hasKomoditasJoin = false)
+    private function applyFilter(array $f, string &$sql, array &$params): void
     {
-        $this->db->where([
-            'p.is_verifikasi' => '1',
-            'p.is_batal'      => '0',
-            'p6.deleted_at'   => '1970-01-01 08:00:00'
-        ]);
-
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
-            $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
-            $this->db->where($field, $f['upt']);
+            $field    = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
+            $sql     .= " AND $field = ?";
+            $params[] = $f['upt'];
         }
-        if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', $f['karantina']);
-        }
-        if (!empty($f['lingkup']) && !in_array(strtolower($f['lingkup']), ['all', 'semua'])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
-        }
-        if (!empty($f['start_date'])) {
-            $this->db->where('p6.tanggal >=', $f['start_date'] . ' 00:00:00');
-        }
-        if (!empty($f['end_date'])) {
-            $this->db->where('p6.tanggal <=', $f['end_date'] . ' 23:59:59');
-        }
-        if (!empty($f['search'])) {
-            $searchColumns = [
-                'p.no_aju',
-                'p6.nomor',
-                'p.no_dok_permohonan',
-                'mu.nama',
-                'mu.nama_satpel',
-                'p.nama_pengirim',
-                'p.nama_penerima',
-                'p6.alasan_lain',
-            ];
-            if ($hasPegawaiJoin) {
-                $searchColumns[] = 'mp.nama';
-            }
-            if ($hasKomoditasJoin) {
-                $searchColumns[] = 'k.nama';
-                $searchColumns[] = 'pk.nama_umum_tercetak';
-                $searchColumns[] = 'pk.kode_hs';
-            }
 
-            $this->applyGlobalSearch($f['search'], $searchColumns);
+        if (!empty($f['karantina'])) {
+            $sql     .= " AND p.jenis_karantina = ?";
+            $params[] = strtoupper($f['karantina']);
+        }
+
+        if (!empty($f['start_date'])) {
+            $sql     .= " AND p6.tanggal >= ?";
+            $params[] = $f['start_date'] . ' 00:00:00';
+        }
+
+        if (!empty($f['end_date'])) {
+            $sql     .= " AND p6.tanggal <= ?";
+            $params[] = $f['end_date'] . ' 23:59:59';
         }
     }
+
     private function buildAlasan(array $r): string
     {
         $out = [];
@@ -269,16 +202,5 @@ public function getIds(array $f, int $limit, int $offset): array
             $out[] = "Lain-lain: " . $r['alasan_lain'];
         }
         return $out ? implode(PHP_EOL, $out) : '-';
-    }
-
-    public function getList($f, $limit, $offset)
-    {
-        $ids = $this->getIds($f, $limit, $offset);
-        return $this->getByIds($ids);
-    }
-
-    public function getExportByFilter($f)
-    {
-        return $this->getFullData($f);
     }
 }

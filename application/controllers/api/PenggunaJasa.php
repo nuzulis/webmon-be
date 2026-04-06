@@ -5,7 +5,7 @@ ini_set('memory_limit', '512M');
  * @property CI_Input           $input
  * @property PenggunaJasa_model $PenggunaJasa_model
  * @property Excel_handler      $excel_handler
- */ 
+ */
 class PenggunaJasa extends MY_Controller
 {
     public function __construct()
@@ -15,62 +15,46 @@ class PenggunaJasa extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    public function index()
+    private function buildFilter(): array
     {
-        $filters = [
+        return [
             'upt'        => $this->input->get('upt', TRUE),
             'permohonan' => $this->input->get('permohonan', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
-
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->PenggunaJasa_model->getIds($filters, $perPage, $offset);
-        $data  = $this->PenggunaJasa_model->getByIds($ids);
-        $total = $this->PenggunaJasa_model->countAll($filters);
-
-        return $this->json([
-            'success' => true,
-            'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ], 200);
     }
-    
-        public function detail()
+
+    public function index()
+    {
+        $filter = $this->buildFilter();
+        $data   = $this->PenggunaJasa_model->getAll($filter);
+
+        return $this->json(['success' => true, 'data' => $data]);
+    }
+
+    public function detail()
     {
         $input = json_decode(file_get_contents("php://input"), true);
-        $id = $input['id'] ?? null;
+        $id    = $input['id'] ?? null;
 
         if (!$id) {
-            return $this->json([
-                'success' => false,
-                'message' => 'ID parameter is required'
-            ], 400);
+            return $this->json(['success' => false, 'message' => 'ID parameter is required'], 400);
         }
+
         $profil = $this->PenggunaJasa_model->get_profil_lengkap($id);
 
         if (!$profil) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Pengguna jasa tidak ditemukan'
-            ], 404);
+            return $this->json(['success' => false, 'message' => 'Pengguna jasa tidak ditemukan'], 404);
         }
+
         $history = $this->PenggunaJasa_model->get_history_ptk($profil['uid']);
+
         return $this->json([
             'success' => true,
-            'data' => [
+            'data'    => [
                 'profil'  => $profil,
-                'history' => $history ?: []
+                'history' => $history ?: [],
             ]
-        ], 200);
+        ]);
     }
 
     public function export_csv()
@@ -78,43 +62,36 @@ class PenggunaJasa extends MY_Controller
         set_time_limit(0);
         ini_set('memory_limit', '256M');
 
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'permohonan' => $this->input->get('permohonan', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-        ];
-        $rows = $this->PenggunaJasa_model->getFullData($filters);
+        $filter = $this->buildFilter();
+        $rows   = $this->PenggunaJasa_model->getFullData($filter);
 
         if (empty($rows)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
         $filename = "Laporan_PenggunaJasa_" . date('Ymd_His') . ".csv";
-        
+
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename=' . $filename);
-        
+
         $output = fopen('php://output', 'w');
-        
+
         fputcsv($output, [
-            'No', 'Nama Pemohon', 'Jenis Perusahaan', 'Nama Perusahaan', 
-            'Identitas', 'Nomor Identitas', 'NITKU', 'UPT Registrasi', 
-            'Lingkup Aktivitas', 'Rerata Frekuensi', 'Daftar Komoditas', 
-            'Tempat Karantina', 'Status Kepemilikan', 'Email', 
+            'No', 'Nama Pemohon', 'Jenis Perusahaan', 'Nama Perusahaan',
+            'Identitas', 'Nomor Identitas', 'NITKU', 'UPT Registrasi',
+            'Lingkup Aktivitas', 'Rerata Frekuensi', 'Daftar Komoditas',
+            'Tempat Karantina', 'Status Kepemilikan', 'Email',
             'Nomor Registrasi', 'Tanggal Registrasi', 'Status Blokir'
         ]);
-        
+
         $no = 1;
         foreach ($rows as $r) {
-            $lingkupArr = json_decode($r['lingkup_aktifitas'], true) ?: [];
-            $lingkupTxt = implode("; ", array_column($lingkupArr, 'activity'));
-            
+            $lingkupArr  = json_decode($r['lingkup_aktifitas'], true) ?: [];
+            $lingkupTxt  = implode("; ", array_column($lingkupArr, 'activity'));
+
             $komoditasArr = json_decode($r['daftar_komoditas'], true) ?: [];
-            $komoditasTxt = implode("; ", array_filter($komoditasArr, function($v) { 
-                return !empty($v); 
+            $komoditasTxt = implode("; ", array_filter($komoditasArr, function ($v) {
+                return !empty($v);
             }));
 
             fputcsv($output, [
@@ -134,16 +111,16 @@ class PenggunaJasa extends MY_Controller
                 $r['email'],
                 $r['nomor_registrasi'],
                 $r['tgl_registrasi'],
-                ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif')
+                ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif'),
             ]);
-            
-            flush(); 
+
+            flush();
         }
 
         fclose($output);
-        
+
         $this->logActivity("EXPORT CSV: Pengguna Jasa");
-        
+
         exit;
     }
 }

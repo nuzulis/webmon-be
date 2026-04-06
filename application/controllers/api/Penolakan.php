@@ -15,55 +15,36 @@ class Penolakan extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    public function index()
+    private function buildFilter(): array
     {
-        $filters = [
+        return [
             'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
-            'lingkup'    => $this->input->get('lingkup', TRUE),
+            'karantina'  => strtoupper($this->input->get('karantina', TRUE) ?? 'H'),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
+    }
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Penolakan_model->getIds($filters, $perPage, $offset);
-        $rows  = $this->Penolakan_model->getByIds($ids);
-        $total = $this->Penolakan_model->countAll($filters);
+    public function index()
+    {
+        $filter = $this->buildFilter();
 
-        return $this->json([
-            'success' => true,
-            'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ], 200);
+        if (!in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
+
+        $data = $this->Penolakan_model->getAll($filter);
+
+        return $this->json(['success' => true, 'data' => $data]);
     }
 
     public function export_excel()
     {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
-            'lingkup'    => $this->input->get('lingkup', TRUE),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-        ];
-        $rows = $this->Penolakan_model->getFullData($filters);
+        $filter = $this->buildFilter();
+        $rows   = $this->Penolakan_model->getFullData($filter);
 
         if (empty($rows)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Data kosong'
-            ], 404);
+            return $this->json(['success' => false, 'message' => 'Data kosong'], 404);
         }
 
         $headers = [
@@ -81,28 +62,30 @@ class Penolakan extends MY_Controller
 
             $data[] = [
                 $idem ? '' : $no++,
-                $r['no_dok_permohonan'] ?? '',
+                $r['no_dok_permohonan']  ?? '',
                 $r['tgl_dok_permohonan'] ?? '',
-                $r['nomor_penolakan'] ?? '',
-                $r['tgl_penolakan'] ?? '',
+                $r['nomor_penolakan']    ?? '',
+                $r['tgl_penolakan']      ?? '',
                 ($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? ''),
-                $r['nama_pengirim'] ?? '',
-                $r['nama_penerima'] ?? '',
-                $r['alasan_string'] ?? '',
-                $r['petugas'] ?? '',
-                $r['komoditas'] ?? '',
-                $r['hs']        ?? '',
+                $r['nama_pengirim']  ?? '',
+                $r['nama_penerima']  ?? '',
+                $r['alasan_string']  ?? '',
+                $r['petugas']        ?? '',
+                $r['komoditas']      ?? '',
+                $r['hs']             ?? '',
                 (float) ($r['volume'] ?? 0),
-                $r['satuan']    ?? '',
+                $r['satuan']         ?? '',
             ];
 
             $lastId = $r['id'];
         }
 
-        $title = "LAPORAN PENOLAKAN {$filters['karantina']}";
-        $info = $this->buildReportHeader($title, $filters, $rows);
+        $title = "LAPORAN PENOLAKAN {$filter['karantina']}";
+        $info  = $this->buildReportHeader($title, $filter, $rows);
 
-        $this->logActivity("EXPORT EXCEL: Penolakan {$filters['karantina']}");
+        $this->logActivity("EXPORT EXCEL: Penolakan {$filter['karantina']}");
+
+        if (ob_get_length()) ob_end_clean();
 
         return $this->excel_handler->download('Laporan_Penolakan', $headers, $data, $info);
     }

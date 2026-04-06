@@ -17,53 +17,36 @@ class Pelepasan extends MY_Controller
 
     public function index()
     {
-        $auth = $this->input->get_request_header('Authorization', true);
-        if (!$auth) return $this->json(401);
-
         $filter = [
-            'upt'        => $this->input->get('upt', true),
-            'karantina'  => strtoupper($this->input->get('karantina', true)),
-            'lingkup'    => $this->input->get('lingkup', true),
-            'start_date' => $this->input->get('start_date', true),
-            'end_date'   => $this->input->get('end_date', true),
-            'search'     => $this->input->get('search', true),
-            'sort_by'    => $this->input->get('sort_by', true),
-            'sort_order' => $this->input->get('sort_order', true),
+            'upt'        => $this->input->post('upt', true),
+            'karantina'  => strtoupper($this->input->post('karantina', true)),
+            'lingkup'    => $this->input->post('lingkup', true),
+            'start_date' => $this->input->post('start_date', true),
+            'end_date'   => $this->input->post('end_date', true),
         ];
 
         if (!in_array($filter['karantina'], ['H','I','T'], true)) {
             return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
         }
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids = $this->Pelepasan_model->getIds($filter, $perPage, $offset);
-        $data = $this->Pelepasan_model->getByIds($ids);
-        $total = $this->Pelepasan_model->countAll($filter);
+        $data = $this->Pelepasan_model->getAll($filter);
 
         return $this->json([
             'success' => true,
             'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => ceil($total / $perPage),
-            ]
-        ], 200);
+            'total'   => count($data),
+        ]);
     }
 
     public function export_excel()
     {
 
         $filter = [
-            'upt'        => $this->input->get('upt', true),
-            'karantina'  => strtoupper($this->input->get('karantina', true)),
-            'lingkup'    => $this->input->get('lingkup', true),
-            'start_date' => $this->input->get('start_date', true),
-            'end_date'   => $this->input->get('end_date', true),
-            'search'     => $this->input->get('search', true),
+        'upt'        => $this->input->post('upt', true),
+        'karantina'  => strtoupper($this->input->post('karantina', true)),
+        'lingkup'    => $this->input->post('lingkup', true),
+        'start_date' => $this->input->post('start_date', true),
+        'end_date'   => $this->input->post('end_date', true),
         ];
 
         $rows = $this->Pelepasan_model->getFullData($filter);
@@ -85,14 +68,6 @@ class Pelepasan extends MY_Controller
         ];
 
         $exportData = [];
-        $no = 0;
-        $lastId = null;
-
-        foreach ($rows as $r) {
-            $isIdem = ($r['id'] === $lastId);
-            if (!$isIdem) { $no++; }
-
-            $exportData = [];
         $no = 0;
         $lastId = null;
 
@@ -165,7 +140,6 @@ class Pelepasan extends MY_Controller
                 $r['dokumen_pendukung_string'] ?? '-'
             ];
             $lastId = $r['id'];
-        }
         }
 
         $title = "LAPORAN PELEPASAN (" . $filter['karantina'] . ")";

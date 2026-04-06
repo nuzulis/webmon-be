@@ -10,55 +10,19 @@ class BillingBatal_model extends BaseModelStrict
    private $cachedData = null;
 
     public function __construct() { parent::__construct(); }
+    public function getAll(array $f): array
+    {
+        return $this->fetchDataInternal($f);
+    }
+
     public function getIds(array $f, int $limit, int $offset): array
     {
-        $data = $this->fetchDataInternal($f);
-        if (!empty($f['search'])) {
-            $s = strtolower($f['search']);
-            $data = array_filter($data, function($row) use ($s) {
-                return (
-                    str_contains(strtolower($row['kode_bill']), $s) || 
-                    str_contains(strtolower($row['nama_upt']), $s) || 
-                    str_contains(strtolower($row['ntpn']), $s) ||
-                    str_contains(strtolower($row['alasan_hapus']), $s)
-                );
-            });
-        }
-        $sortBy = $f['sort_by'] ?? 'deleted_at';
-        $sortOrder = $f['sort_order'] ?? 'DESC';
-        if (!empty($data) && isset($data[0][$sortBy])) {
-            usort($data, function($a, $b) use ($sortBy, $sortOrder) {
-                $valA = $a[$sortBy];
-                $valB = $b[$sortBy];
-                
-                if ($valA == $valB) return 0;
-                $result = ($valA < $valB) ? -1 : 1;
-                return (strtoupper($sortOrder) === 'DESC') ? -$result : $result;
-            });
-        }
-        return array_slice($data, $offset, $limit);
+        return array_slice($this->fetchDataInternal($f), $offset, $limit);
     }
+
     public function getByIds($ids)
     {
         return $ids;
-    }
-
-    public function countAll($f)
-    {
-        $data = $this->fetchDataInternal($f);
-        if (!empty($f['search'])) {
-            $s = strtolower($f['search']);
-            $data = array_filter($data, function($row) use ($s) {
-                return (
-                    str_contains(strtolower($row['kode_bill']), $s) || 
-                    str_contains(strtolower($row['nama_upt']), $s) ||
-                    str_contains(strtolower($row['ntpn']), $s) ||
-                    str_contains(strtolower($row['alasan_hapus']), $s)
-                );
-            });
-        }
-        
-        return count($data);
     }
     private function fetchDataInternal($f) {
         if ($this->cachedData !== null) return $this->cachedData;
@@ -131,6 +95,6 @@ class BillingBatal_model extends BaseModelStrict
     }
     
     public function getFullData($f) {
-        return $this->getIds($f, 100000, 0); 
+        return $this->fetchDataInternal($f);
     }
 }

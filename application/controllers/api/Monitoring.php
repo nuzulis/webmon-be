@@ -20,33 +20,18 @@ class Monitoring extends MY_Controller
         $filter = [
             'upt'        => $this->input->get('upt', TRUE),
             'lingkup'    => $this->input->get('lingkup', TRUE),
-            'karantina'  => $this->input->get('karantina', TRUE),
+            'karantina'  => strtoupper($this->input->get('karantina', TRUE)),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Monitoring_model->getIds($filter, $perPage, $offset);
-        $data  = $this->Monitoring_model->getByIds($ids);
-        $total = $this->Monitoring_model->countAll($filter);
+        if (!in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
 
-        return $this->output
-            ->set_content_type('application/json')
-            ->set_output(json_encode([
-                'success' => true,
-                'data'    => $data,
-                'meta'    => [
-                    'page'       => $page,
-                    'per_page'   => $perPage,
-                    'total'      => $total,
-                    'total_page' => (int) ceil($total / $perPage),
-                ],
-            ], JSON_UNESCAPED_UNICODE));
+        $data = $this->Monitoring_model->getAll($filter);
+
+        return $this->json(['success' => true, 'data' => $data]);
     }
 
     public function export_excel()
@@ -60,7 +45,6 @@ class Monitoring extends MY_Controller
             'karantina' => $map[$karantinaRaw] ?? 'H',
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
         ];
 
         if (!$filter['karantina']) {

@@ -22,27 +22,13 @@ class Domasonline extends MY_Controller
             'karantina'  => strtolower($this->input->get('karantina', TRUE) ?: 'kh'),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int)$this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Domasonline_model->getIds($filters, $perPage, $offset);
-        $data  = $this->Domasonline_model->getByIds($ids);
-        $total = $this->Domasonline_model->countAll($filters);
+        $data = $this->Domasonline_model->getAll($filters);
 
         return $this->json([
             'success' => true,
             'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
         ]);
     }
 
@@ -53,7 +39,6 @@ class Domasonline extends MY_Controller
             'karantina'  => strtolower($this->input->get('karantina', TRUE) ?: 'kh'),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
         ];
 
         $rows = $this->Domasonline_model->getFullData($filters);

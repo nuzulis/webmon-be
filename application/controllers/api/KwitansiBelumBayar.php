@@ -26,29 +26,11 @@ class KwitansiBelumBayar extends MY_Controller
             'start_date'  => $this->input->get('start_date', TRUE),
             'end_date'    => $this->input->get('end_date', TRUE),
             'berdasarkan' => $this->input->get('berdasarkan', TRUE) ?: '',
-            'search'      => $this->input->get('search', TRUE),
-            'sort_by'     => $this->input->get('sort_by', TRUE),
-            'sort_order'  => $this->input->get('sort_order', TRUE),
         ];
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
+        $data = $this->KwitansiBelumBayar_model->getAll($filters);
 
-        $ids   = $this->KwitansiBelumBayar_model->getIds($filters, $perPage, $offset);
-        $data  = $this->KwitansiBelumBayar_model->getByIds($ids);
-        $total = $this->KwitansiBelumBayar_model->countAll($filters);
-
-        return $this->json([
-            'success' => true,
-            'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage)
-            ]
-        ], 200);
+        return $this->json(['success' => true, 'data' => $data], 200);
     }
 
     public function export_excel()
@@ -60,7 +42,6 @@ class KwitansiBelumBayar extends MY_Controller
             'start_date'  => $this->input->get('start_date', TRUE),
             'end_date'    => $this->input->get('end_date', TRUE),
             'berdasarkan' => $this->input->get('berdasarkan', TRUE) ?: 'tanggal_aju',
-            'search'      => $this->input->get('search', TRUE),
         ];
         $data = $this->KwitansiBelumBayar_model->getFullData($filters);
 

@@ -26,20 +26,13 @@ class Transaksi extends MY_Controller
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
             return $this->json(401);
         }
-        
-        $sortBy    = $this->input->get('sort_by', true) ?: 'tgl_dok';
-        $sortOrder = strtoupper($this->input->get('sort_order', true)) === 'ASC' ? 'ASC' : 'DESC';
 
-        
-       $filters = [
+        $filters = [
             'upt'        => $this->input->get('upt', TRUE),
             'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
             'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE) ?: date('Y-m-d'),
             'end_date'   => $this->input->get('end_date', TRUE) ?: date('Y-m-d'),
-            'search'     => $this->input->get('search', true),
-            'sort_by'    => $sortBy,
-            'sort_order' => $sortOrder,
         ];
 
         if (!empty($filters['karantina']) &&
@@ -48,27 +41,12 @@ class Transaksi extends MY_Controller
             return $this->json(400);
         }
 
-       
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = max((int) $this->input->get('per_page'), 10);
-        $offset  = ($page - 1) * $perPage;
-
-        $ids = $this->Transaksi_model->getIds($filters, $perPage, $offset);
-        $rows = empty($ids)
-            ? []
-            : $this->Transaksi_model->getByIds($ids, $filters['karantina'], $sortBy, $sortOrder);
-        $total = $this->Transaksi_model->countAll($filters);
+        $rows = $this->Transaksi_model->getAll($filters);
 
         return $this->json([
             'success' => true,
             'data'    => $rows,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ],200);
+        ], 200);
     }
 
     public function export_excel()
@@ -83,11 +61,9 @@ class Transaksi extends MY_Controller
         'lingkup'    => $this->input->get('lingkup', TRUE),
         'start_date' => $this->input->get('start_date', TRUE) ?: $today,
         'end_date'   => $this->input->get('end_date', TRUE) ?: $today,
-        'search'     => $this->input->get('search', TRUE)
     ];
 
-    $ids = $this->Transaksi_model->getIds($filters, 10000, 0);
-    $rows = !empty($ids) ? $this->Transaksi_model->getByIdsForExcel($ids) : [];
+    $rows = $this->Transaksi_model->getAllForExcel($filters);
 
     if (empty($rows)) {
         return $this->json(['success' => false, 'message' => 'Data tidak ditemukan untuk diunduh'], 404);
@@ -96,7 +72,7 @@ class Transaksi extends MY_Controller
     $headers = [
         'No.', 'Sumber', 'No. Aju', 'Tgl Aju', 'No. Dokumen', 'Tgl Dokumen',
         'UPT', 'Satpel', 'Pengirim', 'Penerima', 'Asal', 'Tujuan',
-        'Tempat Periksa', 'Tgl Periksa', 'Komoditas', 'HS Code', 'Volume', 'Satuan'
+        'Tempat Periksa', 'Tgl Periksa', 'Alamat Periksa', 'Komoditas', 'HS Code', 'Volume', 'Satuan'
     ];
 
     $exportData = [];
@@ -121,6 +97,7 @@ class Transaksi extends MY_Controller
             trim($r['tujuan_kota'] ?? ' - ', ' -'),
             $r['tempat_periksa'] ?? '-',
             $r['tgl_periksa'] ?? '-',
+            $r['alamat_periksa'] ?? '-',
             $r['komoditas'] ?? '-',
             $r['hs'] ?? '-',
             (float) ($r['volume'] ?? 0), 

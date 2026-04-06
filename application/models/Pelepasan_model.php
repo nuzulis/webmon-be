@@ -35,105 +35,79 @@ class Pelepasan_model extends BaseModelStrict
         };
     }
 
-    public function getIds(array $f, int $limit, int $offset): array
+    public function getAll(array $f): array
     {
-        $table = $this->getTable($f['karantina']);
-        $this->db->select('p.id, MAX(p8.tanggal) as tgl_lepas', false);
-        $this->db->from('ptk p');
-        $this->db->join("$table p8", 'p.id = p8.ptk_id');
-        $this->applyFilter($f);
-        $this->db->group_by('p.id');
+        $table     = $this->getTable($f['karantina']);
+        $tabel_kom = $this->getTableKom($f['karantina']);
 
-        $sortMap = [
-            'tgl_lepas' => 'tgl_lepas',
-            'no_aju'    => 'p.no_aju',
-            'no_dok'    => 'p.no_dok_permohonan',
-        ];
-        $this->applySorting($f['sort_by'] ?? null, $f['sort_order'] ?? 'DESC', $sortMap, ['tgl_lepas', 'DESC']);
+        $sql = "
+            SELECT
+                p.id, p.tssm_id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
+                p8.nomor AS nkt, p8.nomor_seri AS seri, p8.tanggal AS tanggal_lepas,
+                mu.nama AS upt, mu.nama_satpel AS satpel,
+                p.nama_pemohon, p.nama_pengirim, p.nama_penerima,
+                mn1.nama AS asal, mn2.nama AS tujuan,
+                mn3.nama AS kota_asal, mn4.nama AS kota_tujuan,
+                GROUP_CONCAT(CONCAT('• ', pkom.nama_umum_tercetak) SEPARATOR '<br>') AS komoditas,
+                GROUP_CONCAT(pkom.kode_hs               SEPARATOR '<br>') AS hs,
+                GROUP_CONCAT(volume_lain SEPARATOR '<br>') as volume,
+                GROUP_CONCAT(pkom.volumeP8              SEPARATOR '<br>') AS volumeP8,
+                GROUP_CONCAT(COALESCE(sat.nama, '-')    SEPARATOR '<br>') AS satuan
+            FROM ptk p
+            JOIN $table p8
+                ON p.id = p8.ptk_id
+            LEFT JOIN ptk_komoditas pkom
+                ON p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'
+            LEFT JOIN $tabel_kom kom
+                ON pkom.komoditas_id = kom.id
+            LEFT JOIN master_satuan sat
+                ON pkom.satuan_lain_id = sat.id
+            LEFT JOIN master_upt mu
+                ON p.kode_satpel = mu.id
+            LEFT JOIN master_negara mn1
+                ON p.negara_asal_id = mn1.id
+            LEFT JOIN master_negara mn2
+                ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_kota_kab mn3
+                ON p.kota_kab_asal_id = mn3.id
+            LEFT JOIN master_kota_kab mn4
+                ON p.kota_kab_tujuan_id = mn4.id
+            WHERE p.is_verifikasi = '1'
+              AND p.is_batal       = '0'
+              AND p8.deleted_at    = '1970-01-01 08:00:00'
+              AND p8.nomor_seri   != '*******'
+        ";
 
-        $this->db->limit($limit, $offset);
+        $params = [];
+
+        if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
+            $field    = (substr($f['upt'], -2) === '00') ? 'p.upt_id' : 'p.kode_satpel';
+            $sql     .= " AND $field = ?";
+            $params[] = $f['upt'];
+        }
+
+        if (!empty($f['lingkup']) && strtolower($f['lingkup']) !== 'all') {
+            $sql     .= " AND p.jenis_permohonan = ?";
+            $params[] = strtoupper($f['lingkup']);
+        }
+
+        if (!empty($f['start_date']) && !empty($f['end_date'])) {
+            $sql     .= " AND p8.tanggal BETWEEN ? AND ?";
+            $params[] = $f['start_date'] . ' 00:00:00';
+            $params[] = $f['end_date']   . ' 23:59:59';
+        }
+
+        $sql .= "
+            GROUP BY p.id, p8.nomor, p8.nomor_seri, p8.tanggal,
+                     mu.nama, mu.nama_satpel,
+                     mn1.nama, mn2.nama, mn3.nama, mn4.nama
+            ORDER BY p8.tanggal DESC
+        ";
 
         $this->db->reconnect();
-        $query = $this->db->get();
-        if (!$query) return [];
-
-        return array_column($query->result_array(), 'id');
+        $query = $this->db->query($sql, $params);
+        return $query ? $query->result_array() : [];
     }
-
-    public function getByIds($ids)
-    {
-        if (empty($ids)) return [];
-
-        $CI =& get_instance();
-        $karantina = $CI->input->get('karantina', true);
-        
-        $table = $this->getTable($karantina);
-        $quotedIds = implode(',', array_map([$this->db, 'escape'], $ids));
-
-        $this->db->select("
-            p.id, 
-            p8.nomor AS nkt, 
-            p8.nomor_seri AS seri, 
-            p8.tanggal AS tanggal_lepas,
-            mu.nama AS upt, 
-            mu.nama_satpel AS satpel,
-            p.no_aju,
-            p.nama_pemohon,
-            p.nama_penerima,
-            mn2.nama AS tujuan,
-            mn4.nama AS kota_tujuan,
-            mn1.nama AS asal, 
-            mn3.nama AS kota_asal,
-            
-            k.komoditas,
-            k.volume,
-            k.volumeP8,
-            k.satuan,
-            k.hs_concat as hs
-        ", false);
-
-        $this->db->from('ptk p')
-            ->join("$table p8", 'p.id = p8.ptk_id')
-            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
-            ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
-            ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
-            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
-            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
-
-        $this->db->join("(
-            SELECT ptk_id,
-                   GROUP_CONCAT(CONCAT('• ', nama_umum_tercetak) SEPARATOR '<br>') as komoditas,
-                   GROUP_CONCAT(volumeP8 SEPARATOR '<br>') as volumeP8,
-                   GROUP_CONCAT(volume_lain SEPARATOR '<br>') as volume,
-                   GROUP_CONCAT(COALESCE(sat.nama, '-') SEPARATOR '<br>') as satuan,
-                   GROUP_CONCAT(kode_hs SEPARATOR '<br>') as hs_concat
-            FROM ptk_komoditas pk
-            LEFT JOIN master_satuan sat ON pk.satuan_lain_id = sat.id
-            WHERE ptk_id IN ($quotedIds) AND pk.deleted_at = '1970-01-01 08:00:00'
-            GROUP BY ptk_id
-        ) k", 'p.id = k.ptk_id', 'left', false);
-
-        $this->db->where_in('p.id', $ids);
-        $this->db->order_by('p8.tanggal', 'DESC');
-
-        return $this->db->get()->result_array();
-    }
-
-    public function countAll($f)
-    {
-        $table = $this->getTable($f['karantina']);
-        
-        $this->db->select('COUNT(DISTINCT p.id) as total');
-        $this->db->from('ptk p')
-            ->join("$table p8", 'p.id = p8.ptk_id');
-
-        $this->applyFilter($f);
-
-        $this->db->reconnect();
-        $res = $this->db->get()->row();
-        return $res ? (int) $res->total : 0;
-    }
-
     public function getFullData($f)
 {
     $table = $this->getTable($f['karantina']);
@@ -216,34 +190,5 @@ class Pelepasan_model extends BaseModelStrict
 
         $this->applyDateFilter('p8.tanggal', $f);
 
-        if (!empty($f['search'])) {
-            $s = $this->db->escape_str($this->db->escape_like_str(trim($f['search'])));
-
-            $this->db->group_start();
-                $this->db->where("p.no_aju LIKE '%{$s}%' ESCAPE '!'", null, false);
-                $this->db->or_where("p.no_dok_permohonan LIKE '%{$s}%' ESCAPE '!'", null, false);
-                $this->db->or_where("p8.nomor LIKE '%{$s}%' ESCAPE '!'", null, false);
-                $this->db->or_where("p.nama_pengirim LIKE '%{$s}%' ESCAPE '!'", null, false);
-                $this->db->or_where("p.nama_penerima LIKE '%{$s}%' ESCAPE '!'", null, false);
-                $this->db->or_where("p.nama_pemohon LIKE '%{$s}%' ESCAPE '!'", null, false);
-
-                $this->db->or_where("EXISTS (
-                    SELECT 1 FROM ptk_komoditas sk
-                    WHERE sk.ptk_id = p.id
-                    AND sk.deleted_at = '1970-01-01 08:00:00'
-                    AND (sk.nama_umum_tercetak LIKE '%{$s}%' ESCAPE '!' OR sk.kode_hs LIKE '%{$s}%' ESCAPE '!')
-                )", null, false);
-
-                $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn WHERE mn.id = p.negara_asal_id AND mn.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-                $this->db->or_where("EXISTS (SELECT 1 FROM master_negara mn2 WHERE mn2.id = p.negara_tujuan_id AND mn2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-                $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk WHERE mk.id = p.kota_kab_asal_id AND mk.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-                $this->db->or_where("EXISTS (SELECT 1 FROM master_kota_kab mk2 WHERE mk2.id = p.kota_kab_tujuan_id AND mk2.nama LIKE '%{$s}%' ESCAPE '!')", null, false);
-
-                $this->db->or_where("EXISTS (
-                    SELECT 1 FROM master_upt mu WHERE mu.id = p.kode_satpel
-                    AND (mu.nama LIKE '%{$s}%' ESCAPE '!' OR mu.nama_satpel LIKE '%{$s}%' ESCAPE '!')
-                )", null, false);
-            $this->db->group_end();
-        }
     }
 }

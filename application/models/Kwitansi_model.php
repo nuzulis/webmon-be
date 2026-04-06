@@ -16,41 +16,17 @@ class Kwitansi_model extends BaseModelStrict
     public function getIds(array $f, int $limit, int $offset): array
     {
         $allData = $this->getAllDataFromSimponi($f);
-        if (empty($allData)) return [];
-        if (!empty($f['search'])) {
-            $allData = $this->filterBySearch($allData, $f['search']);
-        }
-        $allData = $this->sortData($allData, $f['sort_by'] ?? 'tanggal', $f['sort_order'] ?? 'DESC');
-        $total = count($allData);
-        $paginatedData = array_slice($allData, $offset, $limit);
-        $this->session->set_userdata('kwitansi_temp_data', $paginatedData);
-        $this->session->set_userdata('kwitansi_total', $total);
-        return array_keys($paginatedData);
+        return array_keys(array_slice($allData, $offset, $limit));
     }
 
     public function getByIds($ids)
     {
-        $cachedData = $this->session->userdata('kwitansi_temp_data');
-        if (!$cachedData) return [];
-
-        return array_values($cachedData);
+        return $ids;
     }
 
-    public function countAll($filter)
+    public function getFullData($f)
     {
-        return (int) ($this->session->userdata('kwitansi_total') ?: 0);
-    }
-
-    public function getFullData($filter)
-    {
-        $allData = $this->getAllDataFromSimponi($filter);
-        if (empty($allData)) return [];
-
-        if (!empty($filter['search'])) {
-            $allData = $this->filterBySearch($allData, $filter['search']);
-        }
-
-        return $this->sortData($allData, 'tanggal', 'DESC');
+        return $this->getAll($f);
     }
 
     private function getAllDataFromSimponi($f)
@@ -96,40 +72,6 @@ class Kwitansi_model extends BaseModelStrict
 
         $this->_cache_data = $this->normalize($response['data']);
         return $this->_cache_data;
-    }
-
-    private function filterBySearch($data, $search)
-    {
-        return array_filter($data, function($row) use ($search) {
-            $search = strtolower($search);
-            return (
-                stripos($row['nomor'] ?? '', $search) !== false ||
-                stripos($row['nama_wajib_bayar'] ?? '', $search) !== false ||
-                stripos($row['kode_bill'] ?? '', $search) !== false ||
-                stripos($row['ntpn'] ?? '', $search) !== false ||
-                stripos($row['nama_upt'] ?? '', $search) !== false ||
-                stripos($row['nama_satpel'] ?? '', $search) !== false
-            );
-        });
-    }
-
-    private function sortData($data, $sortBy, $sortOrder)
-    {
-        $columnMap = [
-            'nomor'            => 'nomor',
-            'tanggal'          => 'tanggal',
-            'nama_wajib_bayar' => 'nama_wajib_bayar',
-            'total_pnbp'       => 'total_pnbp',
-            'date_setor'       => 'date_setor',
-            'nama_upt'         => 'nama_upt',
-        ];
-
-        $column = $columnMap[$sortBy] ?? 'tanggal';
-        $order = strtoupper($sortOrder) === 'ASC' ? SORT_ASC : SORT_DESC;
-        $sortValues = array_column($data, $column);
-        array_multisort($sortValues, $order, SORT_NATURAL | SORT_FLAG_CASE, $data);
-
-        return $data;
     }
 
     private function normalize($rows)
@@ -213,18 +155,8 @@ class Kwitansi_model extends BaseModelStrict
         return json_decode($res, true);
     }
 
-    public function fetch($f)
-    {
-        $limit = isset($f['per_page']) ? (int)$f['per_page'] : 10;
-        $page = isset($f['page']) ? (int)$f['page'] : 1;
-        $offset = ($page - 1) * $limit;
-        
-        $ids = $this->getIds($f, $limit, $offset);
-        return $this->getByIds($ids);
-    }
-
     public function getAll($f)
     {
-        return $this->getFullData($f);
+        return $this->getAllDataFromSimponi($f);
     }
 }

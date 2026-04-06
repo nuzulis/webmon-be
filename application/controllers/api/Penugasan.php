@@ -15,54 +15,36 @@ class Penugasan extends MY_Controller
         $this->load->library('excel_handler');
     }
 
-    public function index()
+    private function buildFilter(): array
     {
-        $filters = [
+        return [
             'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE) ?? '')),
+            'petugas'    => $this->input->get('petugas', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'petugas'    => $this->input->get('petugas', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
+    }
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
+    public function index()
+    {
+        $filter = $this->buildFilter();
+        if (empty($filter['petugas']) && !in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
 
-        $result = $this->Penugasan_model->getPaginated($filters, $page, $perPage);
-        $total  = $result['total'];
+        $data = $this->Penugasan_model->getAll($filter);
 
-        return $this->json([
-            'success' => true,
-            'data'    => $result['data'],
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ], 200);
+        return $this->json(['success' => true, 'data' => $data]);
     }
 
     public function export_excel()
     {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'petugas'    => $this->input->get('petugas', TRUE),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-        ];
-        $rows = $this->Penugasan_model->getFullData($filters);
+        $filter = $this->buildFilter();
+        $rows   = $this->Penugasan_model->getFullData($filter);
 
         if (empty($rows)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Data tidak ditemukan'
-            ], 404);
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
         $headers = [
@@ -80,7 +62,7 @@ class Penugasan extends MY_Controller
         ];
 
         $exportData = [];
-        $no = 1;
+        $no         = 1;
         $lastSurtug = null;
 
         foreach ($rows as $r) {
@@ -97,29 +79,33 @@ class Penugasan extends MY_Controller
                 $r['nama_petugas'],
                 $r['nip_petugas'],
                 $r['jenis_tugas'],
-                $r['negara_asal'], $r['daerah_asal'],
-                $r['negara_tujuan'], $r['daerah_tujuan'],
-                $r['nama_komoditas'], 
-                $r['nama_umum_tercetak'], 
+                $r['negara_asal'],
+                $r['daerah_asal'],
+                $r['negara_tujuan'],
+                $r['daerah_tujuan'],
+                $r['nama_komoditas'],
+                $r['nama_umum_tercetak'],
                 $r['kode_hs'],
-                (float) ($r['volumeP1'] ?? 0), 
-                (float) ($r['volumeP2'] ?? 0), 
-                (float) ($r['volumeP3'] ?? 0), 
+                (float) ($r['volumeP1'] ?? 0),
+                (float) ($r['volumeP2'] ?? 0),
+                (float) ($r['volumeP3'] ?? 0),
                 (float) ($r['volumeP4'] ?? 0),
-                (float) ($r['volumeP5'] ?? 0), 
-                (float) ($r['volumeP6'] ?? 0), 
-                (float) ($r['volumeP7'] ?? 0), 
+                (float) ($r['volumeP5'] ?? 0),
+                (float) ($r['volumeP6'] ?? 0),
+                (float) ($r['volumeP7'] ?? 0),
                 (float) ($r['volumeP8'] ?? 0),
-                $r['nama_satuan']
+                $r['nama_satuan'],
             ];
 
             $lastSurtug = $r['nomor_surtug'];
         }
 
-        $title = "LAPORAN PENUGASAN PETUGAS KARANTINA";
-        $reportInfo = $this->buildReportHeader($title, $filters, $rows);
+        $title      = "LAPORAN PENUGASAN PETUGAS KARANTINA";
+        $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
         $this->logActivity("EXPORT EXCEL: Penugasan");
+
+        if (ob_get_length()) ob_end_clean();
 
         return $this->excel_handler->download(
             "Laporan_Penugasan_" . date('Ymd'),

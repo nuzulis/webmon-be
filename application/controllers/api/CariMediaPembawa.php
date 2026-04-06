@@ -31,14 +31,14 @@ class CariMediaPembawa extends MY_Controller
     {
         $auth = $this->input->get_request_header('Authorization', TRUE);
         if (!$auth || !preg_match('/Bearer\s+(\S+)/', $auth, $m)) {
-            return $this->json(401);
+            return $this->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $key     = $this->config->item('jwt_key');
         $decoded = jwt_decode($m[1], $key);
 
         if (!$decoded) {
-            return $this->json(401);
+            return $this->json(['success' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $user_upt_id = $decoded['upt'] ?? null;
@@ -46,12 +46,12 @@ class CariMediaPembawa extends MY_Controller
         $karantina = strtoupper(trim($this->input->post('karantina', TRUE)));
 
         if (!$keyword) {
-            return $this->json(400, 'Keyword pencarian wajib diisi');
+            return $this->json(['success' => false, 'message' => 'Keyword pencarian wajib diisi'], 400);
         }
 
         $allowedKarantina = ['H', 'I', 'T'];
         if (!in_array($karantina, $allowedKarantina, true)) {
-            return $this->json(400, 'Jenis karantina wajib diisi');
+            return $this->json(['success' => false, 'message' => 'Jenis karantina wajib diisi'], 400);
         }
         $rows = $this->carimediapembawa->searchMediaPembawa(
             $keyword,
@@ -60,7 +60,7 @@ class CariMediaPembawa extends MY_Controller
         );
 
         if (!$rows) {
-            return $this->json(404, 'Data tidak ditemukan');
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
         return $this->json([
@@ -94,12 +94,12 @@ class CariMediaPembawa extends MY_Controller
         }
 
         $headers = [
-            'No.', 'No Dok Permohonan', 'Klasifikasi', 'Komoditas',
+            'No.',  'UPT',  'Satpel', 'No Dok Permohonan', 'Klasifikasi', 'Komoditas',
             'Nama Umum Tercetak', 'Kode HS', 'Vol. Bruto', 'Vol. Netto',
             'Vol. Lain', 'Satuan', 'Tgl Permohonan', 'Pemohon',
             'Penerima', 'Pengirim', 'Asal', 'Tujuan',
             'Kota Asal', 'Kota Tujuan', 'Jenis Karantina', 'Jenis Permohonan',
-            'Satpel', 'UPT'
+            'Jml Kontainer', 'No. Kontainer', 'Segel', 'No. P8', 'No. Seri P8',  'Nama TTD P8', 'Tgl P8'
         ];
 
         $exportData = [];
@@ -109,6 +109,8 @@ class CariMediaPembawa extends MY_Controller
             $no++;
             $exportData[] = [
                 $no,
+                $r['nama_upt'] ?? '-',
+                $r['satpel'] ?? '-',
                 $r['no_dok_permohonan'] ?? '-',
                 $r['klasifikasi'] ?? '-',
                 $r['komoditas'] ?? '-',
@@ -128,8 +130,13 @@ class CariMediaPembawa extends MY_Controller
                 $r['kota_tujuan'] ?? '-',
                 $r['jenis_karantina'] ?? '-',
                 $r['jenis_permohonan'] ?? '-',
-                $r['satpel'] ?? '-',
-                $r['nama_upt'] ?? '-',
+                (int) ($r['jumlah_kontainer'] ?? 0),
+                $r['nomor_kontainer'] ?? '-',
+                $r['segel'] ?? '-',
+                $r['nomor_p8'] ?? '-',
+                $r['nomor_seri_p8'] ?? '-',
+                $r['nama_ttd_p8'] ?? '-',
+                $r['tgl_p8'] ?? '-',
             ];
         }
 

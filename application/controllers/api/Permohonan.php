@@ -24,9 +24,6 @@ class Permohonan extends MY_Controller
             'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
         if (!empty($filters['karantina'])) {
@@ -38,31 +35,25 @@ class Permohonan extends MY_Controller
             }
         }
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) $this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Permohonan_model->getIds($filters, $perPage, $offset);
-        $data  = $this->Permohonan_model->getByIds($ids, $filters['karantina']);
-        $total = $this->Permohonan_model->countAll($filters);
+        $data = $this->Permohonan_model->getAll($filters);
 
         return $this->json([
             'success' => true,
             'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
         ], 200);
     }
 
     public function export_excel()
     {
-        $filters = $this->_get_filters();
+        $filters = [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+        ];
 
-        $ids  = $this->Permohonan_model->getIds($filters, 5000, 0);
-        $rows = $this->Permohonan_model->getByIdsExport($ids, strtoupper($filters['karantina'] ?? 'H'));
+        $rows = $this->Permohonan_model->getForExcel($filters);
 
         if (empty($rows)) {
             return $this->json([
@@ -144,17 +135,5 @@ class Permohonan extends MY_Controller
             $exportData,
             $reportInfo
         );
-    }
-
-    private function _get_filters()
-    {
-        return [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'lingkup'    => $this->input->get('lingkup', TRUE),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-        ];
     }
 }

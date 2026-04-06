@@ -17,28 +17,16 @@ class BillingBatal extends MY_Controller
     public function index()
     {
         $filters = $this->_get_filters();
-        $page = (int) ($this->input->get('page') ?: 1);
-        $per_page = (int) ($this->input->get('per_page') ?: 10);
 
         try {
-            $all_rows = $this->BillingBatal_model->getIds($filters, 100000, 0);
-            $total_data = count($all_rows);
-            $offset = ($page - 1) * $per_page;
-            $sliced_rows = array_slice($all_rows, $offset, $per_page);
-            
+            $data = $this->BillingBatal_model->getAll($filters);
             return $this->json([
                 'success' => true,
-                'data'    => $sliced_rows,
-                'meta'    => [
-                    'page'       => $page,
-                    'per_page'   => $per_page,
-                    'total'      => $total_data,
-                    'total_page' => ($total_data > 0) ? ceil($total_data / $per_page) : 1
-                ]
+                'data'    => $data,
             ], 200);
         } catch (Exception $e) {
             return $this->json([
-                'success' => false, 
+                'success' => false,
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -102,11 +90,8 @@ class BillingBatal extends MY_Controller
             'karantina'  => $this->input->get('karantina', true),
             'start_date' => $this->input->get('start_date', true),
             'end_date'   => $this->input->get('end_date', true),
-            'search'     => $this->input->get('search', true),
-            'sort_by'    => $this->input->get('sort_by', true),
-            'sort_order' => $this->input->get('sort_order', true),
         ];
-        
+
         $this->applyScope($filters);
         return $filters;
     }

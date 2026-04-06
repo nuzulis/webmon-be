@@ -23,43 +23,21 @@ class Elab extends MY_Controller
             'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
         $this->applyScope($filters);
 
-        $page    = max((int)$this->input->get('page'), 1);
-        $perPage = (int)$this->input->get('per_page') ?: 10;
-        $offset  = ($page - 1) * $perPage;
-        $ids   = $this->Elab_model->getIds($filters, $perPage, $offset);
-        $total = $this->Elab_model->countAll($filters);
-        $rows  = [];
-
-        if (!empty($ids)) {
-            $dataRaw = $this->Elab_model->getByIds($ids);
-            foreach ($dataRaw as $r) {
-                $r['komoditas']       = str_replace('||', '<br>', $r['komoditas_list'] ?? '');
-                $r['nama_target_uji'] = str_replace('||', '<br>', $r['target_list'] ?? '');
-                $r['nama_metode_uji'] = str_replace('||', '<br>', $r['metode_list'] ?? '');
-                $r['hasil_uji']       = str_replace('||', '<br>', $r['hasil_list'] ?? '');
-                $rows[] = $r;
-            }
+        $dataRaw = $this->Elab_model->getAll($filters);
+        $rows = [];
+        foreach ($dataRaw as $r) {
+            $r['komoditas']       = str_replace('||', '<br>', $r['komoditas_list'] ?? '');
+            $r['nama_target_uji'] = str_replace('||', '<br>', $r['target_list'] ?? '');
+            $r['nama_metode_uji'] = str_replace('||', '<br>', $r['metode_list'] ?? '');
+            $r['hasil_uji']       = str_replace('||', '<br>', $r['hasil_list'] ?? '');
+            $rows[] = $r;
         }
 
-        return $this->output
-            ->set_content_type('application/json', 'utf-8')
-            ->set_output(json_encode([
-                'success' => true,
-                'data'    => $rows,
-                'meta'    => [
-                    'page'       => $page,
-                    'per_page'   => $perPage,
-                    'total'      => $total,
-                    'total_page' => (int) ceil($total / $perPage),
-                ]
-            ], JSON_UNESCAPED_UNICODE));
+        return $this->json(['success' => true, 'data' => $rows]);
     }
 
     public function export_excel() 
@@ -70,7 +48,6 @@ class Elab extends MY_Controller
             'lingkup'    => $this->input->get('lingkup', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
         ];
         $rows = $this->Elab_model->getFullData($filters);
 

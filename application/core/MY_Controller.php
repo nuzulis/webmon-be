@@ -105,7 +105,8 @@ class MY_Controller extends CI_Controller
             $this->input->get_request_header('Authorization', true)
             ?: $this->input->get_request_header('HTTP_AUTHORIZATION', true)
             ?: ($_SERVER['HTTP_AUTHORIZATION'] ?? null)
-            ?: $this->input->get('token', true);
+            ?: $this->input->get('token', true)
+            ?: $this->input->post('token', true);
 
         if (!$auth) {
             $this->deny('Unauthorized');

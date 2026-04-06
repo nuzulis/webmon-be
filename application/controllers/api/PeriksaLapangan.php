@@ -2,10 +2,9 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 ini_set('memory_limit', '512M');
 /**
- * @property CI_Input           $input
- * @property CI_Output          $output
+ * @property CI_Input              $input
  * @property PeriksaLapangan_model $PeriksaLapangan_model
- * @property Excel_handler      $excel_handler
+ * @property Excel_handler         $excel_handler
  */
 class PeriksaLapangan extends MY_Controller
 {
@@ -13,41 +12,31 @@ class PeriksaLapangan extends MY_Controller
     {
         parent::__construct();
         $this->load->model('PeriksaLapangan_model');
-        $this->load->helper(['jwt']);
         $this->load->library('excel_handler');
+    }
+
+    private function buildFilter(): array
+    {
+        return [
+            'upt'        => $this->input->get('upt', TRUE),
+            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE) ?? '')),
+            'lingkup'    => $this->input->get('lingkup', TRUE),
+            'start_date' => $this->input->get('start_date', TRUE),
+            'end_date'   => $this->input->get('end_date', TRUE),
+        ];
     }
 
     public function index()
     {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),
-            'lingkup'    => strtoupper(trim($this->input->get('lingkup', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
-        ];
+        $filter = $this->buildFilter();
 
-        $page    = max((int) $this->input->get('page'), 1);
-        $perPage = (int) ($this->input->get('per_page') ?? 10);
-        $offset  = ($page - 1) * $perPage;
+        if (!in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
 
-        $ids   = $this->PeriksaLapangan_model->getIds($filters, $perPage, $offset);
-        $data  = $this->PeriksaLapangan_model->getByIds($ids);
-        $total = $this->PeriksaLapangan_model->countAll($filters);
+        $data = $this->PeriksaLapangan_model->getAll($filter);
 
-        return $this->json([
-            'success' => true,
-            'data'    => $data,
-            'meta'    => [
-                'page'       => $page,
-                'per_page'   => $perPage,
-                'total'      => $total,
-                'total_page' => (int) ceil($total / $perPage),
-            ]
-        ], 200);
+        return $this->json(['success' => true, 'data' => $data]);
     }
 
     public function detail($id)
@@ -56,29 +45,28 @@ class PeriksaLapangan extends MY_Controller
         if (!$data) {
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
-        return $this->json(['success' => true, 'data' => $data], 200);
+        return $this->json(['success' => true, 'data' => $data]);
     }
-
 
     public function export_excel()
     {
-        $filters = [
-            'upt'        => $this->input->get('upt', TRUE),
-            'karantina'  => strtoupper(trim($this->input->get('karantina', TRUE))),       
-            'lingkup' => strtoupper(trim($this->input->get('lingkup', TRUE))),
-            'start_date' => $this->input->get('start_date', TRUE),
-            'end_date'   => $this->input->get('end_date', TRUE),
-        ];
+        $filter = $this->buildFilter();
+        $this->applyScope($filter);
 
-        $this->applyScope($filters);
-        $rows = $this->PeriksaLapangan_model->getExportByFilter($filters);
+        $rows = $this->PeriksaLapangan_model->getFullData($filter);
 
         if (empty($rows)) {
-            die("Data tidak ditemukan untuk periode ini.");
+            return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
+        $headers = [
+            'No', 'UPT / Satpel', 'No Permohonan', 'Tgl Permohonan',
+            'No Surtug', 'Tgl Surtug', 'Petugas', 'Komoditas', 'Target', 'Metode',
+            'Mulai', 'Selesai', 'Durasi', 'Status', 'Keterangan Log'
+        ];
+
         $exportData = [];
-        $no = 1;
+        $no     = 1;
         $lastId = null;
 
         foreach ($rows as $r) {
@@ -86,32 +74,31 @@ class PeriksaLapangan extends MY_Controller
 
             $exportData[] = [
                 $isIdem ? '' : $no++,
-                $r['upt_nama'] . ' / ' . ($r['nama_satpel'] ?? '-'),
-                $r['no_dok_permohonan'] ?? '',
+                ($r['upt_nama'] ?? '-') . ' / ' . ($r['nama_satpel'] ?? '-'),
+                $r['no_dok_permohonan']  ?? '',
                 $r['tgl_dok_permohonan'] ?? '',
-                $r['no_surtug'],
-                $r['tgl_surtug'],
-                $r['nama_petugas'] . ' (' . $r['nip_petugas'] . ')',
-                $r['nama_komoditas'],
-                $r['target'],
-                $r['metode'],
-                $r['mulai'],
-                $r['selesai'],
+                $r['no_surtug']          ?? '',
+                $r['tgl_surtug']         ?? '',
+                ($r['nama_petugas'] ?? '') . ' (' . ($r['nip_petugas'] ?? '') . ')',
+                $r['nama_komoditas']     ?? '-',
+                $r['target']             ?? '',
+                $r['metode']             ?? '',
+                $r['mulai']              ?? '',
+                $r['selesai']            ?? '',
                 ($r['durasi_menit'] ?? 0) . ' Menit',
-                (!empty($r['selesai'])) ? 'SELESAI' : 'PROSES',
-                $r['keterangan_log'],
+                !empty($r['selesai']) ? 'SELESAI' : 'PROSES',
+                $r['keterangan_log']     ?? '',
             ];
+
             $lastId = $r['id'];
         }
 
-        $headers = [
-            'No', 'UPT / Satpel', 'No Permohonan', 'Tgl Permohonan', 
-            'No Surtug', 'Tgl Surtug', 'Petugas', 'Komoditas', 'Target', 'Metode', 
-            'Mulai', 'Selesai', 'Durasi', 'Status', 'Keterangan Log'
-        ];
+        $title      = "LAPORAN PEMERIKSAAN LAPANGAN (OFFICER)";
+        $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
-        $title = "LAPORAN PEMERIKSAAN LAPANGAN (OFFICER)";
-        $reportInfo = $this->buildReportHeader($title, $filters);
+        $this->logActivity("EXPORT EXCEL: Periksa Lapangan {$filter['karantina']}");
+
+        if (ob_get_length()) ob_end_clean();
 
         return $this->excel_handler->download(
             "Laporan_PeriksaLapangan_" . date('Ymd_His'),

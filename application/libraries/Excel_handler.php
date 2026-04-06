@@ -55,16 +55,22 @@ class Excel_handler {
                 $cleanValue = (is_string($cellValue) || is_numeric($cellValue)) ? trim($cellValue) : $cellValue;
 
                 if (is_numeric($cleanValue)) {
-                    if (is_string($cleanValue) && strpos($cleanValue, '0') === 0 && strlen($cleanValue) > 1 && strpos($cleanValue, '.') === false) {
+                    $forceString = is_string($cleanValue)
+                        && strpos($cleanValue, '.') === false
+                        && (
+                            strpos($cleanValue, '0') === 0          // zero-padded: 001234
+                            || strlen($cleanValue) > 15             // too long for float precision: NIP, NIK, etc.
+                        );
+                    if ($forceString) {
                         $sheet->setCellValueExplicit(
-                            $currentCol . $currentRow, 
-                            (string)$cleanValue, 
+                            $currentCol . $currentRow,
+                            (string) $cleanValue,
                             DataType::TYPE_STRING
                         );
                     } else {
                         $sheet->setCellValueExplicit(
-                            $currentCol . $currentRow, 
-                            (float)$cleanValue, 
+                            $currentCol . $currentRow,
+                            (float) $cleanValue,
                             DataType::TYPE_NUMERIC
                         );
                     }

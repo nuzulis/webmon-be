@@ -2,9 +2,9 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 ini_set('memory_limit', '512M');
 /**
- * @property CI_Input         $input
+ * @property CI_Input          $input
  * @property PriorNotice_model $PriorNotice_model
- * @property Excel_handler    $excel_handler
+ * @property Excel_handler     $excel_handler
  */
 class PriorNotice extends MY_Controller
 {
@@ -22,35 +22,20 @@ class PriorNotice extends MY_Controller
             'karantina'  => $this->input->get('karantina', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
-            'sort_by'    => $this->input->get('sort_by', TRUE),
-            'sort_order' => $this->input->get('sort_order', TRUE),
         ];
 
-        $page     = max((int) $this->input->get('page', TRUE), 1);
-        $per_page = (int) $this->input->get('per_page', TRUE) ?: 10;
         $result = $this->PriorNotice_model->fetch($filters);
-        
+
         if (!$result['success']) {
             return $this->json([
                 'success' => false,
                 'message' => $result['message']
             ], 400);
         }
-        $allData = $this->PriorNotice_model->filterAndSort($result['data'], $filters);
-        $total      = count($allData);
-        $offset     = ($page - 1) * $per_page;
-        $slicedData = array_slice($allData, $offset, $per_page);
 
         return $this->json([
             'success' => true,
-            'data'    => $this->format($slicedData),
-            'meta'    => [
-                'total'      => $total,
-                'page'       => $page,
-                'per_page'   => $per_page,
-                'total_page' => (int) ceil($total / $per_page)
-            ]
+            'data'    => $this->format($result['data']),
         ], 200);
     }
 
@@ -87,18 +72,18 @@ class PriorNotice extends MY_Controller
             'karantina'  => $this->input->get('karantina', TRUE),
             'start_date' => $this->input->get('start_date', TRUE),
             'end_date'   => $this->input->get('end_date', TRUE),
-            'search'     => $this->input->get('search', TRUE),
         ];
 
         $result = $this->PriorNotice_model->fetch($filters);
-        
+
         if (!$result['success']) {
             return $this->json([
                 'success' => false,
                 'message' => $result['message']
             ], 400);
         }
-        $rows = $this->PriorNotice_model->filterAndSort($result['data'], $filters);
+
+        $rows = $result['data'];
 
         if (empty($rows)) {
             return $this->json([
@@ -108,21 +93,21 @@ class PriorNotice extends MY_Controller
         }
 
         $headers = [
-            'No.', 'No. Prior Notice', 'Tgl Dokumen', 'Pemohon', 
-            'Eksportir', 'Negara Asal', 'Importir', 
+            'No.', 'No. Prior Notice', 'Tgl Dokumen', 'Pemohon',
+            'Eksportir', 'Negara Asal', 'Importir',
             'Komoditas', 'Volume', 'Satuan',
             'Alat Angkut (Voyage)', 'Tujuan', 'ETA (Tgl Tiba)'
         ];
 
         $exportData = [];
-        $no = 1;
+        $no         = 1;
         $lastDocNbr = null;
 
         foreach ($rows as $r) {
             $isIdem = ($r['docnbr'] === $lastDocNbr && !empty($r['docnbr']));
 
             $exportData[] = [
-                $isIdem ? '' : $no++,                     
+                $isIdem ? '' : $no++,
                 ($r['docnbr'] ?? '-'),
                 ($r['tgl_doc'] ?? '-'),
                 ($r['name'] ?? '-'),
@@ -140,7 +125,7 @@ class PriorNotice extends MY_Controller
             $lastDocNbr = $r['docnbr'];
         }
 
-        $title = "LAPORAN PRIOR NOTICE - " . strtoupper($filters['karantina'] ?? 'ALL');
+        $title      = "LAPORAN PRIOR NOTICE - " . strtoupper($filters['karantina'] ?? 'ALL');
         $reportInfo = $this->buildReportHeader($title, $filters, $rows);
 
         $this->logActivity("EXPORT EXCEL: Prior Notice {$filters['karantina']}");

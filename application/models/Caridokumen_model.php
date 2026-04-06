@@ -337,24 +337,71 @@ class Caridokumen_model extends CI_Model {
         }
     }
 
-    $mapTindakan = [
-        ['Perlakuan', 'k53'],
-        ['Penahanan', 'p5'],
-        ['Penolakan', 'p6'],
-        ['Pemusnahan', 'p7'],
-    ];
+    if (!empty($h['nomor_k53'])) {
+        $push(
+            'Perlakuan',
+            $h['nomor_k53'],
+            $h['tgl_k53'],
+            $h['nama_k53'],
+            $h['nip_k53'],
+            $h['tgl_input_k53'],
+            "https://cert.karantinaindonesia.go.id/print_cert/perlakuan/k51/"
+            . base64_encode($h['id_k53'] . '_view')
+        );
+    }
 
-    foreach ($mapTindakan as [$label, $k]) {
-        if (!empty($h["nomor_$k"])) {
-            $push(
-                $label,
-                $h["nomor_$k"],
-                $h["tgl_$k"],
-                $h["nama_$k"],
-                $h["nip_$k"],
-                $h["tgl_input_$k"]
-            );
-        }
+    if (!empty($h['nomor_p5'])) {
+        $kode = explode('-', $h['nomor_p5'])[3] ?? null;
+        $mapPenahanan = ['K.6.1' => 'k61', 'K.6.2' => 'k62', 'K.6.3' => 'k63'];
+        $folder = $mapPenahanan[$kode] ?? null;
+        $push(
+            'Penahanan',
+            $h['nomor_p5'],
+            $h['tgl_p5'],
+            $h['nama_p5'],
+            $h['nip_p5'],
+            $h['tgl_input_p5'],
+            $folder
+                ? "https://cert.karantinaindonesia.go.id/print_cert/penahanan/{$folder}/"
+                  . base64_encode($h['id_p5'] . '_view')
+                : null
+        );
+    }
+
+    if (!empty($h['nomor_p6'])) {
+        $kode = explode('-', $h['nomor_p6'])[3] ?? null;
+        $mapPenolakan = ['K.7.1' => 'k71', 'K.7.2' => 'k72', 'K.7.3' => 'k73', 'K.7.4' => 'k74'];
+        $folder = $mapPenolakan[$kode] ?? null;
+        $push(
+            'Penolakan',
+            $h['nomor_p6'],
+            $h['tgl_p6'],
+            $h['nama_p6'],
+            $h['nip_p6'],
+            $h['tgl_input_p6'],
+            $folder
+                ? "https://cert.karantinaindonesia.go.id/print_cert/penolakan/{$folder}/"
+                  . base64_encode($h['id_p6'] . '_view')
+                : null
+        );
+    }
+
+    if (!empty($h['nomor_p7'])) {
+        $kode = explode('-', $h['nomor_p7'])[3] ?? null;
+        $mapPemusnahan = ['K.8.1' => 'k81', 'K.8.2' => 'k82', 'K.8.3' => 'k83'];
+        $folder = $mapPemusnahan[$kode] ?? null;
+        $push(
+            'Pemusnahan',
+            $h['nomor_p7'],
+            $h['tgl_p7'],
+            $h['nama_p7'],
+            $h['nip_p7'],
+            $h['tgl_input_p7'],
+            $folder
+                ? "https://cert.karantinaindonesia.go.id/print_cert/pemusnahan/{$folder}/"
+                  . base64_encode($h['id_p7'] . '_view')
+                : null
+        );
     }
 
     foreach ($history as $item) {
