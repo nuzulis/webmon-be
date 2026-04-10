@@ -13,15 +13,15 @@ class Transaksi_model extends BaseModelStrict
     private function applyKarantinaJoin(string $karantina): bool
     {
         $k = strtolower($karantina);
-        if ($k === 'kh') {
+        if ($k === 'kh' || $k === 'h') {
             $this->db->join('komoditas_hewan kom', 'pkom.komoditas_id = kom.id');
             $this->db->join('klasifikasi_hewan klas', 'pkom.klasifikasi_id = klas.id');
             return true;
-        } elseif ($k === 'ki') {
+        } elseif ($k === 'ki' || $k === 'i') {
             $this->db->join('komoditas_ikan kom', 'pkom.komoditas_id = kom.id');
             $this->db->join('klasifikasi_ikan klas', 'pkom.klasifikasi_id = klas.id');
             return true;
-        } elseif ($k === 'kt') {
+        } elseif ($k === 'kt' || $k === 't') {
             $this->db->join('komoditas_tumbuhan kom', 'pkom.komoditas_id = kom.id');
             $this->db->join('klasifikasi_tumbuhan klas', 'pkom.klasifikasi_id = klas.id');
             return true;
