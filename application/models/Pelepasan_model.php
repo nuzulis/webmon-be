@@ -109,67 +109,82 @@ class Pelepasan_model extends BaseModelStrict
         return $query ? $query->result_array() : [];
     }
     public function getFullData($f)
-{
-    $table = $this->getTable($f['karantina']);
-    $tabel_kom = $this->getTableKom($f['karantina']);
-    $tabel_klas = $this->getTableKlas($f['karantina']);
+    {
+        $table      = $this->getTable($f['karantina']);
+        $tabel_kom  = $this->getTableKom($f['karantina']);
+        $tabel_klas = $this->getTableKlas($f['karantina']);
 
-    $this->db->select("
-        p.id, p.tssm_id, p.no_aju, p.tgl_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
-        p8.nomor AS nkt, p8.nomor_seri AS seri, p8.tanggal AS tanggal_lepas,
-        mu.nama AS upt, mu.nama_satpel AS satpel,
-        p.nama_tempat_pemeriksaan, p.alamat_tempat_pemeriksaan, p.tgl_pemeriksaan,
-        p.nama_pemohon, p.alamat_pemohon, p.nomor_identitas_pemohon,
-        p.nama_pengirim, p.alamat_pengirim, p.nomor_identitas_pengirim,
-        p.nama_penerima, p.alamat_penerima, p.nomor_identitas_penerima,
-        mn1.nama AS asal, mn3.nama AS kota_asal, pel_muat.nama AS pelabuhanasal,
-        mn2.nama AS tujuan, mn4.nama AS kota_tujuan, pel_bongkar.nama AS pelabuhantuju,
-        moda.nama AS moda, p.nama_alat_angkut_terakhir, p.no_voyage_terakhir,
-        mjk.deskripsi AS kemas, p.jumlah_kemasan AS total_kemas, p.tanda_khusus,
-        klas.deskripsi AS klasifikasi, kom.nama AS komoditas, pkom.nama_umum_tercetak, pkom.kode_hs AS hs,
-        pkom.volumeP1 AS vol_p1, pkom.volumeP2 AS vol_p2, pkom.volumeP3 AS vol_p3, pkom.volumeP4 AS vol_p4,
-        pkom.volumeP5 AS vol_p5, pkom.volumeP6 AS vol_p6, pkom.volumeP7 AS vol_p7, pkom.volumeP8 AS vol_p8,
-        pkom.volume_lain,
-        pkom.nettoP1 AS net_p1, pkom.nettoP2 AS net_p2, pkom.nettoP3 AS net_p3, pkom.nettoP4 AS net_p4,
-        pkom.nettoP5 AS net_p5, pkom.nettoP6 AS net_p6, pkom.nettoP7 AS net_p7, pkom.nettoP8 AS net_p8,
-        pkom.satuan_netto_id, ms_netto.nama AS satuan_netto,
-        pkom.satuan_bruto_id, ms_bruto.nama AS satuan_bruto,
-        pkom.satuan_lain_id, ms_lain.nama AS satuan_lain,
-        
-        pkom.harga_rp,           
-        (SELECT GROUP_CONCAT(CONCAT(nomor, ' (', segel, ')') SEPARATOR '; ') 
-         FROM ptk_kontainer WHERE ptk_id = p.id AND deleted_at = '1970-01-01 08:00:00') AS kontainer_string,
-         
-        (SELECT GROUP_CONCAT(CONCAT(mjd.nama, ':', pdok.no_dokumen) SEPARATOR '; ')
-         FROM ptk_dokumen pdok 
-         JOIN master_jenis_dokumen mjd ON pdok.jenis_dokumen_id = mjd.id 
-         WHERE pdok.ptk_id = p.id AND pdok.deleted_at = '1970-01-01 08:00:00') AS dokumen_pendukung_string
-    ", false);
+        // Match getAll(): reconnect before a heavy query to avoid stale-connection silence
+        $this->db->reconnect();
 
-    $this->db->from('ptk p')
-        ->join("$table p8", 'p.id = p8.ptk_id')
-        ->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'")
-        ->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left')
-        ->join("$tabel_klas klas", 'pkom.klasifikasi_id = klas.id', 'left')
-        ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
-        ->join('master_satuan ms_netto', 'pkom.satuan_netto_id = ms_netto.id', 'left')
-        ->join('master_satuan ms_bruto', 'pkom.satuan_bruto_id = ms_bruto.id', 'left')
-        ->join('master_satuan ms_lain', 'pkom.satuan_lain_id = ms_lain.id', 'left')    
-        ->join('master_pelabuhan pel_muat', 'p.pelabuhan_muat_id = pel_muat.id', 'left')
-        ->join('master_pelabuhan pel_bongkar', 'p.pelabuhan_bongkar_id = pel_bongkar.id', 'left')
-        ->join('master_moda_alat_angkut moda', 'p.moda_alat_angkut_terakhir_id = moda.id', 'left')
-        ->join('master_jenis_kemasan mjk', 'p.kemasan_id = mjk.id', 'left')
-        ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
-        ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
-        ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
-        ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
+        $this->db->select("
+            p.id, p.tssm_id, p.no_aju, p.tgl_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
+            p8.nomor AS nkt, p8.nomor_seri AS seri, p8.tanggal AS tanggal_lepas,
+            mu.nama AS upt, mu.nama_satpel AS satpel,
+            p.nama_tempat_pemeriksaan, p.alamat_tempat_pemeriksaan, p.tgl_pemeriksaan,
+            p.nama_pemohon, p.alamat_pemohon, p.nomor_identitas_pemohon,
+            p.nama_pengirim, p.alamat_pengirim, p.nomor_identitas_pengirim,
+            p.nama_penerima, p.alamat_penerima, p.nomor_identitas_penerima,
+            mn1.nama AS asal, mn3.nama AS kota_asal, pel_muat.nama AS pelabuhanasal,
+            mn2.nama AS tujuan, mn4.nama AS kota_tujuan, pel_bongkar.nama AS pelabuhantuju,
+            moda.nama AS moda, p.nama_alat_angkut_terakhir, p.no_voyage_terakhir,
+            mjk.deskripsi AS kemas, p.jumlah_kemasan AS total_kemas, p.tanda_khusus,
+            klas.deskripsi AS klasifikasi, kom.nama AS komoditas, pkom.nama_umum_tercetak, pkom.kode_hs AS hs,
+            pkom.volumeP1 AS vol_p1, pkom.volumeP2 AS vol_p2, pkom.volumeP3 AS vol_p3, pkom.volumeP4 AS vol_p4,
+            pkom.volumeP5 AS vol_p5, pkom.volumeP6 AS vol_p6, pkom.volumeP7 AS vol_p7, pkom.volumeP8 AS vol_p8,
+            pkom.volume_lain,
+            pkom.nettoP1 AS net_p1, pkom.nettoP2 AS net_p2, pkom.nettoP3 AS net_p3, pkom.nettoP4 AS net_p4,
+            pkom.nettoP5 AS net_p5, pkom.nettoP6 AS net_p6, pkom.nettoP7 AS net_p7, pkom.nettoP8 AS net_p8,
+            pkom.satuan_netto_id, ms_netto.nama AS satuan_netto,
+            pkom.satuan_bruto_id, ms_bruto.nama AS satuan_bruto,
+            pkom.satuan_lain_id, ms_lain.nama AS satuan_lain,
+            pkom.harga_rp,
+            (SELECT GROUP_CONCAT(CONCAT(nomor, ' (', segel, ')') SEPARATOR '; ')
+             FROM ptk_kontainer WHERE ptk_id = p.id AND deleted_at = '1970-01-01 08:00:00') AS kontainer_string,
+            (SELECT GROUP_CONCAT(CONCAT(mjd.nama, ':', pdok.no_dokumen) SEPARATOR '; ')
+             FROM ptk_dokumen pdok
+             JOIN master_jenis_dokumen mjd ON pdok.jenis_dokumen_id = mjd.id
+             WHERE pdok.ptk_id = p.id AND pdok.deleted_at = '1970-01-01 08:00:00') AS dokumen_pendukung_string
+        ", false);
 
-    $this->applyFilter($f);
-    $this->db->order_by('p.id', 'ASC');
-    $this->db->order_by('pkom.id', 'ASC');
+        $this->db->from('ptk p')
+            ->join("$table p8", 'p.id = p8.ptk_id')
+            // LEFT JOIN to match getAll(): keep ptk rows even when all komoditas are soft-deleted
+            ->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'", 'left')
+            ->join("$tabel_kom kom",  'pkom.komoditas_id = kom.id', 'left')
+            ->join("$tabel_klas klas", 'pkom.klasifikasi_id = klas.id', 'left')
+            ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
+            ->join('master_satuan ms_netto', 'pkom.satuan_netto_id = ms_netto.id', 'left')
+            ->join('master_satuan ms_bruto', 'pkom.satuan_bruto_id = ms_bruto.id', 'left')
+            ->join('master_satuan ms_lain',  'pkom.satuan_lain_id = ms_lain.id', 'left')
+            ->join('master_pelabuhan pel_muat',    'p.pelabuhan_muat_id = pel_muat.id', 'left')
+            ->join('master_pelabuhan pel_bongkar', 'p.pelabuhan_bongkar_id = pel_bongkar.id', 'left')
+            ->join('master_moda_alat_angkut moda', 'p.moda_alat_angkut_terakhir_id = moda.id', 'left')
+            ->join('master_jenis_kemasan mjk', 'p.kemasan_id = mjk.id', 'left')
+            ->join('master_negara mn1', 'p.negara_asal_id = mn1.id', 'left')
+            ->join('master_negara mn2', 'p.negara_tujuan_id = mn2.id', 'left')
+            ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
+            ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-    return $this->db->get()->result_array();
-}
+        $this->applyFilter($f);
+        $this->db->order_by('p.id',    'ASC');
+        $this->db->order_by('pkom.id', 'ASC');
+
+        $query = $this->db->get();
+
+        // Temporary: log the compiled SQL so you can verify the query
+        log_message('debug', '[Pelepasan_model::getFullData] SQL: ' . $this->db->last_query());
+
+        if (!$query) {
+            log_message('error', '[Pelepasan_model::getFullData] Query failed');
+            return [];
+        }
+
+        $rows = $query->result_array();
+        log_message('debug', '[Pelepasan_model::getFullData] Row count: ' . count($rows));
+
+        return $rows;
+    }
 
     private function applyFilter($f)
     {

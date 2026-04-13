@@ -4,7 +4,7 @@ ini_set('memory_limit', '512M');
 /**
  * @property CI_Input        $input
  * @property Penugasan_model $Penugasan_model
- * @property Excel_handler   $excel_handler
+ * @property Csv_handler     $csv_handler
  */
 class Penugasan extends MY_Controller
 {
@@ -12,7 +12,7 @@ class Penugasan extends MY_Controller
     {
         parent::__construct();
         $this->load->model('Penugasan_model');
-        $this->load->library('excel_handler');
+        $this->load->library('csv_handler');
     }
 
     private function buildFilter(): array
@@ -61,43 +61,47 @@ class Penugasan extends MY_Controller
             'Satuan'
         ];
 
+        $clean = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
+        $fmt   = fn($v)  => number_format((float) ($v ?? 0), 2, ',', '.');
+
         $exportData = [];
-        $no         = 1;
+        $no         = 0;
         $lastSurtug = null;
 
         foreach ($rows as $r) {
-            $isIdem = ($r['nomor_surtug'] === $lastSurtug);
+            if ($r['nomor_surtug'] !== $lastSurtug) {
+                $no++;
+                $lastSurtug = $r['nomor_surtug'];
+            }
 
             $exportData[] = [
-                $isIdem ? '' : $no++,
-                $r['nomor_surtug'],
-                $r['tgl_surtug'],
-                $r['no_dok_permohonan'],
-                $r['tgl_dok_permohonan'],
-                $r['upt'],
-                $r['satpel'],
-                $r['nama_petugas'],
-                $r['nip_petugas'],
-                $r['jenis_tugas'],
-                $r['negara_asal'],
-                $r['daerah_asal'],
-                $r['negara_tujuan'],
-                $r['daerah_tujuan'],
-                $r['nama_komoditas'],
-                $r['nama_umum_tercetak'],
-                $r['kode_hs'],
-                (float) ($r['volumeP1'] ?? 0),
-                (float) ($r['volumeP2'] ?? 0),
-                (float) ($r['volumeP3'] ?? 0),
-                (float) ($r['volumeP4'] ?? 0),
-                (float) ($r['volumeP5'] ?? 0),
-                (float) ($r['volumeP6'] ?? 0),
-                (float) ($r['volumeP7'] ?? 0),
-                (float) ($r['volumeP8'] ?? 0),
-                $r['nama_satuan'],
+                $no,
+                $clean($r['nomor_surtug']),
+                $clean($r['tgl_surtug']),
+                $clean($r['no_dok_permohonan']),
+                $clean($r['tgl_dok_permohonan']),
+                $clean($r['upt']),
+                $clean($r['satpel']),
+                $clean($r['nama_petugas']),
+                $clean($r['nip_petugas']),
+                $clean($r['jenis_tugas']),
+                $clean($r['negara_asal']),
+                $clean($r['daerah_asal']),
+                $clean($r['negara_tujuan']),
+                $clean($r['daerah_tujuan']),
+                $clean($r['nama_komoditas']),
+                $clean($r['nama_umum_tercetak']),
+                $clean($r['kode_hs']),
+                $fmt($r['volumeP1']),
+                $fmt($r['volumeP2']),
+                $fmt($r['volumeP3']),
+                $fmt($r['volumeP4']),
+                $fmt($r['volumeP5']),
+                $fmt($r['volumeP6']),
+                $fmt($r['volumeP7']),
+                $fmt($r['volumeP8']),
+                $clean($r['nama_satuan']),
             ];
-
-            $lastSurtug = $r['nomor_surtug'];
         }
 
         $title      = "LAPORAN PENUGASAN PETUGAS KARANTINA";
@@ -107,7 +111,7 @@ class Penugasan extends MY_Controller
 
         if (ob_get_length()) ob_end_clean();
 
-        return $this->excel_handler->download(
+        return $this->csv_handler->download(
             "Laporan_Penugasan_" . date('Ymd'),
             $headers,
             $exportData,

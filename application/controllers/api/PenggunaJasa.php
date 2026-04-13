@@ -4,7 +4,7 @@ ini_set('memory_limit', '512M');
 /**
  * @property CI_Input           $input
  * @property PenggunaJasa_model $PenggunaJasa_model
- * @property Excel_handler      $excel_handler
+ * @property Csv_handler        $csv_handler
  */
 class PenggunaJasa extends MY_Controller
 {
@@ -12,7 +12,7 @@ class PenggunaJasa extends MY_Controller
     {
         parent::__construct();
         $this->load->model('PenggunaJasa_model');
-        $this->load->library('excel_handler');
+        $this->load->library('csv_handler');
     }
 
     private function buildFilter(): array
@@ -59,9 +59,6 @@ class PenggunaJasa extends MY_Controller
 
     public function export_csv()
     {
-        set_time_limit(0);
-        ini_set('memory_limit', '256M');
-
         $filter = $this->buildFilter();
         $rows   = $this->PenggunaJasa_model->getFullData($filter);
 
@@ -69,21 +66,15 @@ class PenggunaJasa extends MY_Controller
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
         }
 
-        $filename = "Laporan_PenggunaJasa_" . date('Ymd_His') . ".csv";
-
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename=' . $filename);
-
-        $output = fopen('php://output', 'w');
-
-        fputcsv($output, [
+        $headers = [
             'No', 'Nama Pemohon', 'Jenis Perusahaan', 'Nama Perusahaan',
             'Identitas', 'Nomor Identitas', 'NITKU', 'UPT Registrasi',
             'Lingkup Aktivitas', 'Rerata Frekuensi', 'Daftar Komoditas',
             'Tempat Karantina', 'Status Kepemilikan', 'Email',
             'Nomor Registrasi', 'Tanggal Registrasi', 'Status Blokir'
-        ]);
+        ];
 
+        $exportData = [];
         $no = 1;
         foreach ($rows as $r) {
             $lingkupArr  = json_decode($r['lingkup_aktifitas'], true) ?: [];
@@ -94,7 +85,7 @@ class PenggunaJasa extends MY_Controller
                 return !empty($v);
             }));
 
-            fputcsv($output, [
+            $exportData[] = [
                 $no++,
                 $r['pemohon'],
                 $r['jenis_perusahaan'],
@@ -112,15 +103,12 @@ class PenggunaJasa extends MY_Controller
                 $r['nomor_registrasi'],
                 $r['tgl_registrasi'],
                 ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif'),
-            ]);
-
-            flush();
+            ];
         }
-
-        fclose($output);
 
         $this->logActivity("EXPORT CSV: Pengguna Jasa");
 
-        exit;
+        if (ob_get_length()) ob_end_clean();
+        return $this->csv_handler->download("Laporan_PenggunaJasa_" . date('Ymd_His'), $headers, $exportData);
     }
 }
