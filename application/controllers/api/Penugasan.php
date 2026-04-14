@@ -40,8 +40,19 @@ class Penugasan extends MY_Controller
 
     public function export_excel()
     {
+        set_time_limit(0);
+
         $filter = $this->buildFilter();
-        $rows   = $this->Penugasan_model->getFullData($filter);
+
+        if (empty($filter['petugas']) && !in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
+
+        if (empty($filter['start_date']) || empty($filter['end_date'])) {
+            return $this->json(['success' => false, 'message' => 'Parameter start_date dan end_date wajib diisi'], 400);
+        }
+
+        $rows = $this->Penugasan_model->getFullData($filter);
 
         if (empty($rows)) {
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
@@ -64,57 +75,56 @@ class Penugasan extends MY_Controller
         $clean = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
         $fmt   = fn($v)  => number_format((float) ($v ?? 0), 2, ',', '.');
 
-        $exportData = [];
         $no         = 0;
         $lastSurtug = null;
-
-        foreach ($rows as $r) {
-            if ($r['nomor_surtug'] !== $lastSurtug) {
-                $no++;
-                $lastSurtug = $r['nomor_surtug'];
+        $rowGen = (function () use ($rows, $clean, $fmt, &$no, &$lastSurtug) {
+            foreach ($rows as $r) {
+                if ($r['nomor_surtug'] !== $lastSurtug) {
+                    $no++;
+                    $lastSurtug = $r['nomor_surtug'];
+                }
+                yield [
+                    $no,
+                    $clean($r['nomor_surtug']),
+                    $clean($r['tgl_surtug']),
+                    $clean($r['no_dok_permohonan']),
+                    $clean($r['tgl_dok_permohonan']),
+                    $clean($r['upt']),
+                    $clean($r['satpel']),
+                    $clean($r['nama_petugas']),
+                    $clean($r['nip_petugas']),
+                    $clean($r['jenis_tugas']),
+                    $clean($r['negara_asal']),
+                    $clean($r['daerah_asal']),
+                    $clean($r['negara_tujuan']),
+                    $clean($r['daerah_tujuan']),
+                    $clean($r['nama_komoditas']),
+                    $clean($r['nama_umum_tercetak']),
+                    $clean($r['kode_hs']),
+                    $fmt($r['volumeP1']),
+                    $fmt($r['volumeP2']),
+                    $fmt($r['volumeP3']),
+                    $fmt($r['volumeP4']),
+                    $fmt($r['volumeP5']),
+                    $fmt($r['volumeP6']),
+                    $fmt($r['volumeP7']),
+                    $fmt($r['volumeP8']),
+                    $clean($r['nama_satuan']),
+                ];
             }
-
-            $exportData[] = [
-                $no,
-                $clean($r['nomor_surtug']),
-                $clean($r['tgl_surtug']),
-                $clean($r['no_dok_permohonan']),
-                $clean($r['tgl_dok_permohonan']),
-                $clean($r['upt']),
-                $clean($r['satpel']),
-                $clean($r['nama_petugas']),
-                $clean($r['nip_petugas']),
-                $clean($r['jenis_tugas']),
-                $clean($r['negara_asal']),
-                $clean($r['daerah_asal']),
-                $clean($r['negara_tujuan']),
-                $clean($r['daerah_tujuan']),
-                $clean($r['nama_komoditas']),
-                $clean($r['nama_umum_tercetak']),
-                $clean($r['kode_hs']),
-                $fmt($r['volumeP1']),
-                $fmt($r['volumeP2']),
-                $fmt($r['volumeP3']),
-                $fmt($r['volumeP4']),
-                $fmt($r['volumeP5']),
-                $fmt($r['volumeP6']),
-                $fmt($r['volumeP7']),
-                $fmt($r['volumeP8']),
-                $clean($r['nama_satuan']),
-            ];
-        }
+        })();
 
         $title      = "LAPORAN PENUGASAN PETUGAS KARANTINA";
         $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
         $this->logActivity("EXPORT EXCEL: Penugasan");
 
-        if (ob_get_length()) ob_end_clean();
+        if (ob_get_level() > 0) ob_end_clean();
 
         return $this->csv_handler->download(
             "Laporan_Penugasan_" . date('Ymd'),
             $headers,
-            $exportData,
+            $rowGen,
             $reportInfo
         );
     }

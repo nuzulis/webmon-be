@@ -59,6 +59,8 @@ class PenggunaJasa extends MY_Controller
 
     public function export_csv()
     {
+        set_time_limit(0);
+
         $filter = $this->buildFilter();
         $rows   = $this->PenggunaJasa_model->getFullData($filter);
 
@@ -74,41 +76,40 @@ class PenggunaJasa extends MY_Controller
             'Nomor Registrasi', 'Tanggal Registrasi', 'Status Blokir'
         ];
 
-        $exportData = [];
         $no = 1;
-        foreach ($rows as $r) {
-            $lingkupArr  = json_decode($r['lingkup_aktifitas'], true) ?: [];
-            $lingkupTxt  = implode("; ", array_column($lingkupArr, 'activity'));
+        $rowGen = (function () use ($rows, &$no) {
+            foreach ($rows as $r) {
+                $lingkupArr  = json_decode($r['lingkup_aktifitas'], true) ?: [];
+                $lingkupTxt  = implode("; ", array_column($lingkupArr, 'activity'));
 
-            $komoditasArr = json_decode($r['daftar_komoditas'], true) ?: [];
-            $komoditasTxt = implode("; ", array_filter($komoditasArr, function ($v) {
-                return !empty($v);
-            }));
+                $komoditasArr = json_decode($r['daftar_komoditas'], true) ?: [];
+                $komoditasTxt = implode("; ", array_filter($komoditasArr, fn($v) => !empty($v)));
 
-            $exportData[] = [
-                $no++,
-                $r['pemohon'],
-                $r['jenis_perusahaan'],
-                $r['nama_perusahaan'],
-                $r['jenis_identitas'],
-                $r['nomor_identitas'],
-                $r['nitku'],
-                $r['upt'],
-                $lingkupTxt ?: '-',
-                $r['rerata_frekuensi'],
-                $komoditasTxt ?: '-',
-                ($r['tempat_karantina'] == 1 ? 'Internal' : 'Luar'),
-                $r['status_kepemilikan'],
-                $r['email'],
-                $r['nomor_registrasi'],
-                $r['tgl_registrasi'],
-                ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif'),
-            ];
-        }
+                yield [
+                    $no++,
+                    $r['pemohon'],
+                    $r['jenis_perusahaan'],
+                    $r['nama_perusahaan'],
+                    $r['jenis_identitas'],
+                    $r['nomor_identitas'],
+                    $r['nitku'],
+                    $r['upt'],
+                    $lingkupTxt ?: '-',
+                    $r['rerata_frekuensi'],
+                    $komoditasTxt ?: '-',
+                    ($r['tempat_karantina'] == 1 ? 'Internal' : 'Luar'),
+                    $r['status_kepemilikan'],
+                    $r['email'],
+                    $r['nomor_registrasi'],
+                    $r['tgl_registrasi'],
+                    ($r['blockir'] == 1 ? 'Terblokir' : 'Aktif'),
+                ];
+            }
+        })();
 
         $this->logActivity("EXPORT CSV: Pengguna Jasa");
 
-        if (ob_get_length()) ob_end_clean();
-        return $this->csv_handler->download("Laporan_PenggunaJasa_" . date('Ymd_His'), $headers, $exportData);
+        if (ob_get_level() > 0) ob_end_clean();
+        return $this->csv_handler->download("Laporan_PenggunaJasa_" . date('Ymd_His'), $headers, $rowGen);
     }
 }

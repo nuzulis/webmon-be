@@ -40,14 +40,23 @@ class Pelepasan extends MY_Controller
 
     public function export_excel()
     {
+        set_time_limit(0);
 
         $filter = [
-        'upt'        => $this->input->post('upt', true),
-        'karantina'  => strtoupper($this->input->post('karantina', true)),
-        'lingkup'    => $this->input->post('lingkup', true),
-        'start_date' => $this->input->post('start_date', true),
-        'end_date'   => $this->input->post('end_date', true),
+            'upt'        => $this->input->post('upt', true),
+            'karantina'  => strtoupper($this->input->post('karantina', true)),
+            'lingkup'    => $this->input->post('lingkup', true),
+            'start_date' => $this->input->post('start_date', true),
+            'end_date'   => $this->input->post('end_date', true),
         ];
+
+        if (!in_array($filter['karantina'], ['H', 'I', 'T'], true)) {
+            return $this->json(['success' => false, 'message' => 'Parameter karantina tidak valid'], 400);
+        }
+
+        if (empty($filter['start_date']) || empty($filter['end_date'])) {
+            return $this->json(['success' => false, 'message' => 'Parameter start_date dan end_date wajib diisi'], 400);
+        }
 
         $rows = $this->Pelepasan_model->getFullData($filter);
 
@@ -70,88 +79,89 @@ class Pelepasan extends MY_Controller
         $clean = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
         $fmt   = fn($v)  => number_format((float) ($v ?? 0), 2, ',', '.');
 
-        $exportData = [];
-        $no = 0;
+        // Use a generator to map $rows → CSV rows on-the-fly instead of
+        // building a second full copy of the data in $exportData.
+        $no     = 0;
         $lastId = null;
-
-        foreach ($rows as $r) {
-            if ($r['id'] !== $lastId) {
-                $no++;
-                $lastId = $r['id'];
+        $rowGen = (function () use ($rows, $clean, $fmt, &$no, &$lastId) {
+            foreach ($rows as $r) {
+                if ($r['id'] !== $lastId) {
+                    $no++;
+                    $lastId = $r['id'];
+                }
+                yield [
+                    $no,
+                    $r['tssm_id'] ? 'SSM' : 'PTK',
+                    $clean($r['no_aju']),
+                    $clean($r['tgl_aju']),
+                    $clean($r['no_dok_permohonan']),
+                    $clean($r['tgl_dok_permohonan']),
+                    $clean($r['upt']),
+                    $clean($r['satpel']),
+                    $clean($r['nama_tempat_pemeriksaan']),
+                    $clean($r['alamat_tempat_pemeriksaan']),
+                    $clean($r['tgl_pemeriksaan']),
+                    $clean($r['nama_pemohon']),
+                    $clean($r['alamat_pemohon']),
+                    $clean($r['nomor_identitas_pemohon']),
+                    $clean($r['nama_pengirim']),
+                    $clean($r['alamat_pengirim']),
+                    $clean($r['nomor_identitas_pengirim']),
+                    $clean($r['nama_penerima']),
+                    $clean($r['alamat_penerima']),
+                    $clean($r['nomor_identitas_penerima']),
+                    $clean($r['asal']),
+                    $clean($r['kota_asal']),
+                    $clean($r['pelabuhanasal']),
+                    $clean($r['tujuan']),
+                    $clean($r['kota_tujuan']),
+                    $clean($r['pelabuhantuju']),
+                    $clean($r['moda']),
+                    $clean($r['nama_alat_angkut_terakhir']),
+                    $clean($r['no_voyage_terakhir']),
+                    $clean($r['kemas']),
+                    $fmt($r['total_kemas']),
+                    $clean($r['tanda_khusus']),
+                    $clean($r['nkt']),
+                    $clean($r['seri']),
+                    $clean($r['tanggal_lepas']),
+                    $clean($r['klasifikasi'] ?? '-'),
+                    $clean($r['komoditas'] ?? '-'),
+                    $clean($r['nama_umum_tercetak'] ?? '-'),
+                    $clean($r['hs'] ?? '-'),
+                    $fmt($r['vol_p1']),
+                    $fmt($r['vol_p2']),
+                    $fmt($r['vol_p3']),
+                    $fmt($r['vol_p4']),
+                    $fmt($r['vol_p5']),
+                    $fmt($r['vol_p6']),
+                    $fmt($r['vol_p7']),
+                    $fmt($r['vol_p8']),
+                    $fmt($r['volume_lain']),
+                    $fmt($r['net_p1']),
+                    $fmt($r['net_p2']),
+                    $fmt($r['net_p3']),
+                    $fmt($r['net_p4']),
+                    $fmt($r['net_p5']),
+                    $fmt($r['net_p6']),
+                    $fmt($r['net_p7']),
+                    $fmt($r['net_p8']),
+                    $clean($r['satuan_netto'] ?? '-'),
+                    $clean($r['satuan_bruto'] ?? '-'),
+                    $clean($r['satuan_lain'] ?? '-'),
+                    $fmt($r['harga_rp']),
+                    $clean($r['kontainer_string'] ?? '-'),
+                    $clean($r['dokumen_pendukung_string'] ?? '-'),
+                ];
             }
-
-            $exportData[] = [
-                $no,
-                $r['tssm_id'] ? 'SSM' : 'PTK',
-                $clean($r['no_aju']),
-                $clean($r['tgl_aju']),
-                $clean($r['no_dok_permohonan']),
-                $clean($r['tgl_dok_permohonan']),
-                $clean($r['upt']),
-                $clean($r['satpel']),
-                $clean($r['nama_tempat_pemeriksaan']),
-                $clean($r['alamat_tempat_pemeriksaan']),
-                $clean($r['tgl_pemeriksaan']),
-                $clean($r['nama_pemohon']),
-                $clean($r['alamat_pemohon']),
-                $clean($r['nomor_identitas_pemohon']),
-                $clean($r['nama_pengirim']),
-                $clean($r['alamat_pengirim']),
-                $clean($r['nomor_identitas_pengirim']),
-                $clean($r['nama_penerima']),
-                $clean($r['alamat_penerima']),
-                $clean($r['nomor_identitas_penerima']),
-                $clean($r['asal']),
-                $clean($r['kota_asal']),
-                $clean($r['pelabuhanasal']),
-                $clean($r['tujuan']),
-                $clean($r['kota_tujuan']),
-                $clean($r['pelabuhantuju']),
-                $clean($r['moda']),
-                $clean($r['nama_alat_angkut_terakhir']),
-                $clean($r['no_voyage_terakhir']),
-                $clean($r['kemas']),
-                $fmt($r['total_kemas']),
-                $clean($r['tanda_khusus']),
-                $clean($r['nkt']),
-                $clean($r['seri']),
-                $clean($r['tanggal_lepas']),
-                $clean($r['klasifikasi'] ?? '-'),
-                $clean($r['komoditas'] ?? '-'),
-                $clean($r['nama_umum_tercetak'] ?? '-'),
-                $clean($r['hs'] ?? '-'),
-                $fmt($r['vol_p1']),
-                $fmt($r['vol_p2']),
-                $fmt($r['vol_p3']),
-                $fmt($r['vol_p4']),
-                $fmt($r['vol_p5']),
-                $fmt($r['vol_p6']),
-                $fmt($r['vol_p7']),
-                $fmt($r['vol_p8']),
-                $fmt($r['volume_lain']),
-                $fmt($r['net_p1']),
-                $fmt($r['net_p2']),
-                $fmt($r['net_p3']),
-                $fmt($r['net_p4']),
-                $fmt($r['net_p5']),
-                $fmt($r['net_p6']),
-                $fmt($r['net_p7']),
-                $fmt($r['net_p8']),
-                $clean($r['satuan_netto'] ?? '-'),
-                $clean($r['satuan_bruto'] ?? '-'),
-                $clean($r['satuan_lain'] ?? '-'),
-                $fmt($r['harga_rp']),
-                $clean($r['kontainer_string'] ?? '-'),
-                $clean($r['dokumen_pendukung_string'] ?? '-'),
-            ];
-        }
+        })();
 
         $title = "LAPORAN PELEPASAN (" . $filter['karantina'] . ")";
         $reportInfo = $this->buildReportHeader($title, $filter, $rows);
-        
+
         $this->logActivity("EXPORT EXCEL PELEPASAN $filter[karantina]");
 
-        if (ob_get_length()) ob_end_clean();
-        return $this->csv_handler->download("Laporan_Pelepasan_" . date('Ymd_His'), $headers, $exportData, $reportInfo);
+        if (ob_get_level() > 0) ob_end_clean();
+        return $this->csv_handler->download("Laporan_Pelepasan_" . date('Ymd_His'), $headers, $rowGen, $reportInfo);
     }
 }

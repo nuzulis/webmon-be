@@ -113,8 +113,6 @@ class Pelepasan_model extends BaseModelStrict
         $table      = $this->getTable($f['karantina']);
         $tabel_kom  = $this->getTableKom($f['karantina']);
         $tabel_klas = $this->getTableKlas($f['karantina']);
-
-        // Match getAll(): reconnect before a heavy query to avoid stale-connection silence
         $this->db->reconnect();
 
         $this->db->select("
@@ -149,7 +147,6 @@ class Pelepasan_model extends BaseModelStrict
 
         $this->db->from('ptk p')
             ->join("$table p8", 'p.id = p8.ptk_id')
-            // LEFT JOIN to match getAll(): keep ptk rows even when all komoditas are soft-deleted
             ->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'", 'left')
             ->join("$tabel_kom kom",  'pkom.komoditas_id = kom.id', 'left')
             ->join("$tabel_klas klas", 'pkom.klasifikasi_id = klas.id', 'left')
@@ -172,7 +169,6 @@ class Pelepasan_model extends BaseModelStrict
 
         $query = $this->db->get();
 
-        // Temporary: log the compiled SQL so you can verify the query
         log_message('debug', '[Pelepasan_model::getFullData] SQL: ' . $this->db->last_query());
 
         if (!$query) {
