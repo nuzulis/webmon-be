@@ -40,6 +40,7 @@ class Penugasan extends MY_Controller
 
     public function export_excel()
     {
+        ini_set('memory_limit', '1024M');
         set_time_limit(0);
 
         $filter = $this->buildFilter();
@@ -52,7 +53,13 @@ class Penugasan extends MY_Controller
             return $this->json(['success' => false, 'message' => 'Parameter start_date dan end_date wajib diisi'], 400);
         }
 
-        $rows = $this->Penugasan_model->getFullData($filter);
+        try {
+            $rows = $this->Penugasan_model->getFullData($filter);
+            log_message('info', '[Penugasan::export_excel] rows fetched: ' . count($rows));
+        } catch (\Throwable $e) {
+            log_message('error', '[Penugasan::export_excel] DB error: ' . $e->getMessage());
+            return $this->json(['success' => false, 'message' => 'Gagal mengambil data'], 500);
+        }
 
         if (empty($rows)) {
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
@@ -72,12 +79,13 @@ class Penugasan extends MY_Controller
             'Satuan'
         ];
 
-        $clean = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
-        $fmt   = fn($v)  => number_format((float) ($v ?? 0), 2, ',', '.');
+        $clean  = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
+        $fmt    = fn($v) => number_format((float) ($v ?? 0), 2, ',', '.');
+        $asText = fn($v) => '="' . str_replace('"', '""', trim((string) ($v ?? ''))) . '"';
 
         $no         = 0;
         $lastSurtug = null;
-        $rowGen = (function () use ($rows, $clean, $fmt, &$no, &$lastSurtug) {
+        $rowGen = (function () use ($rows, $clean, $fmt, $asText, &$no, &$lastSurtug) {
             foreach ($rows as $r) {
                 if ($r['nomor_surtug'] !== $lastSurtug) {
                     $no++;
@@ -92,7 +100,7 @@ class Penugasan extends MY_Controller
                     $clean($r['upt']),
                     $clean($r['satpel']),
                     $clean($r['nama_petugas']),
-                    $clean($r['nip_petugas']),
+                    $asText($r['nip_petugas']),
                     $clean($r['jenis_tugas']),
                     $clean($r['negara_asal']),
                     $clean($r['daerah_asal']),
@@ -100,7 +108,7 @@ class Penugasan extends MY_Controller
                     $clean($r['daerah_tujuan']),
                     $clean($r['nama_komoditas']),
                     $clean($r['nama_umum_tercetak']),
-                    $clean($r['kode_hs']),
+                    $asText($r['kode_hs']),
                     $fmt($r['volumeP1']),
                     $fmt($r['volumeP2']),
                     $fmt($r['volumeP3']),
@@ -119,13 +127,22 @@ class Penugasan extends MY_Controller
 
         $this->logActivity("EXPORT EXCEL: Penugasan");
 
-        if (ob_get_level() > 0) ob_end_clean();
-
-        return $this->csv_handler->download(
-            "Laporan_Penugasan_" . date('Ymd'),
-            $headers,
-            $rowGen,
-            $reportInfo
-        );
+        try {
+            if (ob_get_level() > 0) ob_end_clean();
+            log_message('info', '[Penugasan::export_excel] starting CSV stream');
+            $this->csv_handler->download(
+                "Laporan_Penugasan_" . date('Ymd'),
+                $headers,
+                $rowGen,
+                $reportInfo
+            );
+        } catch (\Throwable $e) {
+            log_message('error', '[Penugasan::export_excel] CSV write error: ' . $e->getMessage());
+            if (!headers_sent()) {
+                if (ob_get_level() > 0) ob_end_clean();
+                return $this->json(['success' => false, 'message' => 'Gagal membuat file CSV'], 500);
+            }
+            exit;
+        }
     }
 }

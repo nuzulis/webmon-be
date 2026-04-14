@@ -40,6 +40,7 @@ class Pelepasan extends MY_Controller
 
     public function export_excel()
     {
+        ini_set('memory_limit', '1024M');
         set_time_limit(0);
 
         $filter = [
@@ -58,7 +59,13 @@ class Pelepasan extends MY_Controller
             return $this->json(['success' => false, 'message' => 'Parameter start_date dan end_date wajib diisi'], 400);
         }
 
-        $rows = $this->Pelepasan_model->getFullData($filter);
+        try {
+            $rows = $this->Pelepasan_model->getFullData($filter);
+            log_message('info', '[Pelepasan::export_excel] rows fetched: ' . count($rows));
+        } catch (\Throwable $e) {
+            log_message('error', '[Pelepasan::export_excel] DB error: ' . $e->getMessage());
+            return $this->json(['success' => false, 'message' => 'Gagal mengambil data'], 500);
+        }
 
         if (empty($rows)) {
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
@@ -76,14 +83,13 @@ class Pelepasan extends MY_Controller
             'Satuan Netto', 'Satuan Bruto', 'Satuan Lain', 'Harga Barang (Rp)', 'Kontainer', 'Dokumen Pendukung'
         ];
 
-        $clean = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
-        $fmt   = fn($v)  => number_format((float) ($v ?? 0), 2, ',', '.');
+        $clean  = fn($v) => trim(str_replace(["\r\n", "\r", "\n"], ' ', (string) ($v ?? '')));
+        $fmt    = fn($v) => number_format((float) ($v ?? 0), 2, ',', '.');
+        $asText = fn($v) => '="' . str_replace('"', '""', trim((string) ($v ?? ''))) . '"';
 
-        // Use a generator to map $rows → CSV rows on-the-fly instead of
-        // building a second full copy of the data in $exportData.
         $no     = 0;
         $lastId = null;
-        $rowGen = (function () use ($rows, $clean, $fmt, &$no, &$lastId) {
+        $rowGen = (function () use ($rows, $clean, $fmt, $asText, &$no, &$lastId) {
             foreach ($rows as $r) {
                 if ($r['id'] !== $lastId) {
                     $no++;
@@ -103,13 +109,13 @@ class Pelepasan extends MY_Controller
                     $clean($r['tgl_pemeriksaan']),
                     $clean($r['nama_pemohon']),
                     $clean($r['alamat_pemohon']),
-                    $clean($r['nomor_identitas_pemohon']),
+                    $asText($r['nomor_identitas_pemohon']),
                     $clean($r['nama_pengirim']),
                     $clean($r['alamat_pengirim']),
-                    $clean($r['nomor_identitas_pengirim']),
+                    $asText($r['nomor_identitas_pengirim']),
                     $clean($r['nama_penerima']),
                     $clean($r['alamat_penerima']),
-                    $clean($r['nomor_identitas_penerima']),
+                    $asText($r['nomor_identitas_penerima']),
                     $clean($r['asal']),
                     $clean($r['kota_asal']),
                     $clean($r['pelabuhanasal']),
@@ -128,7 +134,7 @@ class Pelepasan extends MY_Controller
                     $clean($r['klasifikasi'] ?? '-'),
                     $clean($r['komoditas'] ?? '-'),
                     $clean($r['nama_umum_tercetak'] ?? '-'),
-                    $clean($r['hs'] ?? '-'),
+                    $asText($r['hs'] ?? '-'),
                     $fmt($r['vol_p1']),
                     $fmt($r['vol_p2']),
                     $fmt($r['vol_p3']),
@@ -156,12 +162,22 @@ class Pelepasan extends MY_Controller
             }
         })();
 
-        $title = "LAPORAN PELEPASAN (" . $filter['karantina'] . ")";
+        $title      = "LAPORAN PELEPASAN (" . $filter['karantina'] . ")";
         $reportInfo = $this->buildReportHeader($title, $filter, $rows);
 
         $this->logActivity("EXPORT EXCEL PELEPASAN $filter[karantina]");
 
-        if (ob_get_level() > 0) ob_end_clean();
-        return $this->csv_handler->download("Laporan_Pelepasan_" . date('Ymd_His'), $headers, $rowGen, $reportInfo);
+        try {
+            if (ob_get_level() > 0) ob_end_clean();
+            log_message('info', '[Pelepasan::export_excel] starting CSV stream');
+            $this->csv_handler->download("Laporan_Pelepasan_" . date('Ymd_His'), $headers, $rowGen, $reportInfo);
+        } catch (\Throwable $e) {
+            log_message('error', '[Pelepasan::export_excel] CSV write error: ' . $e->getMessage());
+            if (!headers_sent()) {
+                if (ob_get_level() > 0) ob_end_clean();
+                return $this->json(['success' => false, 'message' => 'Gagal membuat file CSV'], 500);
+            }
+            exit;
+        }
     }
 }

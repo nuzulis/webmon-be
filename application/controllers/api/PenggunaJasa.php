@@ -59,10 +59,18 @@ class PenggunaJasa extends MY_Controller
 
     public function export_csv()
     {
+        ini_set('memory_limit', '1024M');
         set_time_limit(0);
 
         $filter = $this->buildFilter();
-        $rows   = $this->PenggunaJasa_model->getFullData($filter);
+
+        try {
+            $rows = $this->PenggunaJasa_model->getFullData($filter);
+            log_message('info', '[PenggunaJasa::export_csv] rows fetched: ' . count($rows));
+        } catch (\Throwable $e) {
+            log_message('error', '[PenggunaJasa::export_csv] DB error: ' . $e->getMessage());
+            return $this->json(['success' => false, 'message' => 'Gagal mengambil data'], 500);
+        }
 
         if (empty($rows)) {
             return $this->json(['success' => false, 'message' => 'Data tidak ditemukan'], 404);
@@ -76,8 +84,10 @@ class PenggunaJasa extends MY_Controller
             'Nomor Registrasi', 'Tanggal Registrasi', 'Status Blokir'
         ];
 
+        $asText = fn($v) => '="' . str_replace('"', '""', trim((string) ($v ?? ''))) . '"';
+
         $no = 1;
-        $rowGen = (function () use ($rows, &$no) {
+        $rowGen = (function () use ($rows, $asText, &$no) {
             foreach ($rows as $r) {
                 $lingkupArr  = json_decode($r['lingkup_aktifitas'], true) ?: [];
                 $lingkupTxt  = implode("; ", array_column($lingkupArr, 'activity'));
@@ -91,7 +101,7 @@ class PenggunaJasa extends MY_Controller
                     $r['jenis_perusahaan'],
                     $r['nama_perusahaan'],
                     $r['jenis_identitas'],
-                    $r['nomor_identitas'],
+                    $asText($r['nomor_identitas']),
                     $r['nitku'],
                     $r['upt'],
                     $lingkupTxt ?: '-',
@@ -109,7 +119,17 @@ class PenggunaJasa extends MY_Controller
 
         $this->logActivity("EXPORT CSV: Pengguna Jasa");
 
-        if (ob_get_level() > 0) ob_end_clean();
-        return $this->csv_handler->download("Laporan_PenggunaJasa_" . date('Ymd_His'), $headers, $rowGen);
+        try {
+            if (ob_get_level() > 0) ob_end_clean();
+            log_message('info', '[PenggunaJasa::export_csv] starting CSV stream');
+            $this->csv_handler->download("Laporan_PenggunaJasa_" . date('Ymd_His'), $headers, $rowGen);
+        } catch (\Throwable $e) {
+            log_message('error', '[PenggunaJasa::export_csv] CSV write error: ' . $e->getMessage());
+            if (!headers_sent()) {
+                if (ob_get_level() > 0) ob_end_clean();
+                return $this->json(['success' => false, 'message' => 'Gagal membuat file CSV'], 500);
+            }
+            exit;
+        }
     }
 }
