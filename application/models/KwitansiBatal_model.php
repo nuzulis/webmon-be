@@ -6,11 +6,13 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 class KwitansiBatal_model extends BaseModelStrict
 {
     private $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/batal/kuitansi';
+    protected $db_excel;
     private $_cache_data = null;
 
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
 

@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Nnc_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getKomTable(string $kar): string
@@ -137,8 +140,8 @@ class Nnc_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY p6.tanggal DESC, p.no_aju ASC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         return $this->formatNncData($query ? $query->result_array() : [], true);
     }
 

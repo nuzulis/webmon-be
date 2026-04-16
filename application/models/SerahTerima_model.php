@@ -5,6 +5,14 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class SerahTerima_model extends BaseModelStrict
 {
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     private function komTable(string $karantina): string
     {
         $kar = strtoupper($karantina ?: 'H');

@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Permohonan_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     public function getAll(array $f): array
@@ -59,7 +62,7 @@ class Permohonan_model extends BaseModelStrict
         $kar       = strtoupper($f['karantina'] ?? 'H');
         $tabel_kom = 'komoditas_' . ($kar === 'H' ? 'hewan' : ($kar === 'I' ? 'ikan' : 'tumbuhan'));
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id,
             p.no_aju,
             p.tgl_aju,
@@ -94,7 +97,7 @@ class Permohonan_model extends BaseModelStrict
             TIMESTAMPDIFF(MINUTE, p1b.waktu_periksa, NOW()) AS selisih_menit
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db_excel->from('ptk p')
             ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
             ->join('status8p', 'p.id = status8p.id', 'left')
             ->join('ba_penyerahan_mp ba', 'p.id = ba.ptk_id', 'left')
@@ -109,17 +112,19 @@ class Permohonan_model extends BaseModelStrict
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id', 'left')
             ->join("$tabel_kom kom", 'pkom.komoditas_id = kom.id', 'left');
 
-        $this->applyFilter($f);
+        $this->applyFilter($f, $this->db_excel);
 
-        $this->db->order_by('p.no_aju', 'ASC')
-                 ->order_by('pkom.id', 'ASC');
+        $this->db_excel->order_by('p.no_aju', 'ASC')
+                       ->order_by('pkom.id', 'ASC');
 
-        return $this->db->get()->result_array();
+        return $this->db_excel->get()->result_array();
     }
 
-    private function applyFilter(array $f): void
+    private function applyFilter(array $f, $db = null): void
     {
-        $this->db->where([
+        $db = $db ?? $this->db;
+
+        $db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
             'pkom.deleted_at' => '1970-01-01 08:00:00',
@@ -130,22 +135,22 @@ class Permohonan_model extends BaseModelStrict
         ]);
 
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua'])) {
-            $this->db->where('p.upt_id', $f['upt']);
+            $db->where('p.upt_id', $f['upt']);
         }
         if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', strtoupper($f['karantina']));
+            $db->where('p.jenis_karantina', strtoupper($f['karantina']));
         }
 
         $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
         if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua'])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+            $db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
 
         if (!empty($f['start_date'])) {
-            $this->db->where('DATE(p.tgl_dok_permohonan) >=', $f['start_date']);
+            $db->where('DATE(p.tgl_dok_permohonan) >=', $f['start_date']);
         }
         if (!empty($f['end_date'])) {
-            $this->db->where('DATE(p.tgl_dok_permohonan) <=', $f['end_date']);
+            $db->where('DATE(p.tgl_dok_permohonan) <=', $f['end_date']);
         }
     }
 }

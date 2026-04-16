@@ -5,9 +5,12 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class Monitoring_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getTable($karantina)
@@ -135,7 +138,7 @@ class Monitoring_model extends BaseModelStrict
         $karInput = $f['karantina'] ?? 'H';
         $tablePelepasan = $this->getTable($karInput);
         $tableKomoditas = $this->getTableKom($karInput);
-        $this->db->select("
+        $this->db_excel->select("
             p.no_aju,
             p.no_dok_permohonan as no_dok,
             p.nama_pengirim,
@@ -165,37 +168,37 @@ class Monitoring_model extends BaseModelStrict
             END AS status
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db_excel->from('ptk p')
             ->join('master_upt mu', 'p.kode_satpel = mu.id', 'left')
             ->join('pn_fisik_kesehatan p1b', 'p.id = p1b.ptk_id')
             ->join('status8p s8', 'p.id = s8.id', 'left');
 
-        $this->db->join("$tablePelepasan p8", "p.id = p8.ptk_id AND p8.deleted_at = '1970-01-01 08:00:00'", 'left');
-        $this->db->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'");
-        $this->db->join("$tableKomoditas kom", 'pkom.komoditas_id = kom.id');
-        $this->db->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left');
+        $this->db_excel->join("$tablePelepasan p8", "p.id = p8.ptk_id AND p8.deleted_at = '1970-01-01 08:00:00'", 'left');
+        $this->db_excel->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'");
+        $this->db_excel->join("$tableKomoditas kom", 'pkom.komoditas_id = kom.id');
+        $this->db_excel->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left');
 
-        $this->db->where('p.is_verifikasi', '1');
-        $this->db->where('p.is_batal', '0');
+        $this->db_excel->where('p.is_verifikasi', '1');
+        $this->db_excel->where('p.is_batal', '0');
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua'], true)) {
             $field = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
-            $this->db->where($field, $f['upt']);
+            $this->db_excel->where($field, $f['upt']);
         }
         if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', strtoupper($f['karantina']));
+            $this->db_excel->where('p.jenis_karantina', strtoupper($f['karantina']));
         }
         if (!empty($f['lingkup'])) {
-            $this->db->where('p.jenis_permohonan', $f['lingkup']);
+            $this->db_excel->where('p.jenis_permohonan', $f['lingkup']);
         }
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
-            $this->db->where('p1b.waktu_periksa >=', $f['start_date'] . ' 00:00:00');
-            $this->db->where('p1b.waktu_periksa <=', $f['end_date'] . ' 23:59:59');
+            $this->db_excel->where('p1b.waktu_periksa >=', $f['start_date'] . ' 00:00:00');
+            $this->db_excel->where('p1b.waktu_periksa <=', $f['end_date'] . ' 23:59:59');
         }
 
-        $this->db->order_by('p1b.waktu_periksa', 'DESC');
-        $this->db->order_by('p.no_aju', 'ASC');
+        $this->db_excel->order_by('p1b.waktu_periksa', 'DESC');
+        $this->db_excel->order_by('p.no_aju', 'ASC');
 
-        $rows = $this->db->get()->result_array();
+        $rows = $this->db_excel->get()->result_array();
         return $this->formatSlaText($rows);
     }
 }

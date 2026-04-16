@@ -5,10 +5,13 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Elab_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
         $this->db = $this->load->database('elab', TRUE);
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
 public function getAll(array $f): array

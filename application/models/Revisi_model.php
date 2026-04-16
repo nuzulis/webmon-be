@@ -4,6 +4,14 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class Revisi_model extends BaseModelStrict
 {
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     private function getPelepasanTable(string $karantina): string
     {
         $map = ['H' => 'pn_pelepasan_kh', 'I' => 'pn_pelepasan_ki', 'T' => 'pn_pelepasan_kt'];
@@ -52,7 +60,7 @@ class Revisi_model extends BaseModelStrict
         $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
         $wkt   = '1970-01-01 08:00:00';
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id,
             IF(p.tssm_id IS NOT NULL, 'SSM', 'PTK') AS sumber,
             p.no_aju,
@@ -74,37 +82,39 @@ class Revisi_model extends BaseModelStrict
         ->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left')
         ->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
 
-        $this->applyFilter($f);
-        $this->db->where("p8.deleted_at != '$wkt'", null, false);
-        $this->db->where("EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
+        $this->applyFilter($f, $this->db_excel);
+        $this->db_excel->where("p8.deleted_at != '$wkt'", null, false);
+        $this->db_excel->where("EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
 
-        $this->db->order_by('p.id', 'DESC')
-                 ->order_by('p8.tanggal', 'DESC');
+        $this->db_excel->order_by('p.id', 'DESC')
+                       ->order_by('p8.tanggal', 'DESC');
 
-        return $this->db->get()->result_array();
+        return $this->db_excel->get()->result_array();
     }
 
-    private function applyFilter(array $f): void
+    private function applyFilter(array $f, $db = null): void
     {
-        $this->db->where('p.is_batal', '0');
+        $db = $db ?? $this->db;
+
+        $db->where('p.is_batal', '0');
 
         if (!empty($f['upt']) && $f['upt'] !== 'all') {
-            $this->db->where('p.upt_id', $f['upt']);
+            $db->where('p.upt_id', $f['upt']);
         }
 
         $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
         if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+            $db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
 
         if (!empty($f['start_date'])) {
-            $this->db->where('p8.tanggal >=', $f['start_date']);
+            $db->where('p8.tanggal >=', $f['start_date']);
         }
         if (!empty($f['end_date'])) {
-            $this->db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
+            $db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
 
-        $this->db->where('p8.nomor_seri IS NOT NULL', null, false);
-        $this->db->where("p8.nomor_seri != '*******'", null, false);
+        $db->where('p8.nomor_seri IS NOT NULL', null, false);
+        $db->where("p8.nomor_seri != '*******'", null, false);
     }
 }

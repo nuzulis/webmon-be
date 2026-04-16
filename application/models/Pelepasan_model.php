@@ -5,6 +5,14 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Pelepasan_model extends BaseModelStrict
 {
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     private function getTable($karantina)
     {
         return match (strtoupper($karantina)) {
@@ -113,9 +121,9 @@ class Pelepasan_model extends BaseModelStrict
         $table      = $this->getTable($f['karantina']);
         $tabel_kom  = $this->getTableKom($f['karantina']);
         $tabel_klas = $this->getTableKlas($f['karantina']);
-        $this->db->reconnect();
+        $this->db_excel->reconnect();
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id, p.tssm_id, p.no_aju, p.tgl_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
             p8.nomor AS nkt, p8.nomor_seri AS seri, p8.tanggal AS tanggal_lepas,
             mu.nama AS upt, mu.nama_satpel AS satpel,
@@ -145,7 +153,7 @@ class Pelepasan_model extends BaseModelStrict
              WHERE pdok.ptk_id = p.id AND pdok.deleted_at = '1970-01-01 08:00:00') AS dokumen_pendukung_string
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db_excel->from('ptk p')
             ->join("$table p8", 'p.id = p8.ptk_id')
             ->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'", 'left')
             ->join("$tabel_kom kom",  'pkom.komoditas_id = kom.id', 'left')
@@ -163,13 +171,13 @@ class Pelepasan_model extends BaseModelStrict
             ->join('master_kota_kab mn3', 'p.kota_kab_asal_id = mn3.id', 'left')
             ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left');
 
-        $this->applyFilter($f);
-        $this->db->order_by('p.id',    'ASC');
-        $this->db->order_by('pkom.id', 'ASC');
+        $this->applyFilter($f, $this->db_excel);
+        $this->db_excel->order_by('p.id',    'ASC');
+        $this->db_excel->order_by('pkom.id', 'ASC');
 
-        $query = $this->db->get();
+        $query = $this->db_excel->get();
 
-        log_message('debug', '[Pelepasan_model::getFullData] SQL: ' . $this->db->last_query());
+        log_message('debug', '[Pelepasan_model::getFullData] SQL: ' . $this->db_excel->last_query());
 
         if (!$query) {
             log_message('error', '[Pelepasan_model::getFullData] Query failed');
@@ -182,9 +190,11 @@ class Pelepasan_model extends BaseModelStrict
         return $rows;
     }
 
-    private function applyFilter($f)
+    private function applyFilter($f, $db = null)
     {
-        $this->db->where([
+        $db = $db ?? $this->db;
+
+        $db->where([
             'p.is_verifikasi' => '1',
             'p.is_batal'      => '0',
             'p8.deleted_at'   => '1970-01-01 08:00:00',
@@ -192,14 +202,18 @@ class Pelepasan_model extends BaseModelStrict
 
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
             $field = (substr($f['upt'], -2) === '00') ? 'p.upt_id' : 'p.kode_satpel';
-            $this->db->where($field, $f['upt']);
+            $db->where($field, $f['upt']);
         }
 
         if (!empty($f['lingkup']) && strtolower($f['lingkup']) !== 'all') {
-            $this->db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
+            $db->where('p.jenis_permohonan', strtoupper($f['lingkup']));
         }
 
-        $this->applyDateFilter('p8.tanggal', $f);
-
+        if (!empty($f['start_date'])) {
+            $db->where('p8.tanggal >=', $f['start_date'] . ' 00:00:00');
+        }
+        if (!empty($f['end_date'])) {
+            $db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
+        }
     }
 }

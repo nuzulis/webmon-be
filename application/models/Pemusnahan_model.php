@@ -14,9 +14,12 @@ class Pemusnahan_model extends BaseModelStrict
         'alasan6' => 'Tidak memenuhi persyaratan keamanan dan mutu pangan/pakan',
     ];
 
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getKomTable(string $kar): string
@@ -145,8 +148,8 @@ class Pemusnahan_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY mus.tanggal DESC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         $rows  = $query ? $query->result_array() : [];
 
         foreach ($rows as &$r) {

@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Perlakuan_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     public function getAll(array $filter): array
@@ -66,7 +69,7 @@ class Perlakuan_model extends BaseModelStrict
     {
         $karantina = $filter['karantina'] ?? null;
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id,
             p.no_aju,
             p4.nomor AS no_p4,
@@ -90,7 +93,7 @@ class Perlakuan_model extends BaseModelStrict
             p4.nama_operator
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db_excel->from('ptk p')
             ->join('pn_perlakuan p4', 'p.id = p4.ptk_id')
             ->join('ptk_komoditas pkom', 'p.id = pkom.ptk_id')
             ->join('master_satuan ms', 'pkom.satuan_lain_id = ms.id', 'left')
@@ -99,23 +102,25 @@ class Perlakuan_model extends BaseModelStrict
             ->join('master_perlakuan mp', 'p4.tipe_perlakuan_id = mp.id', 'left');
 
         if ($karantina === 'H') {
-            $this->db->join('komoditas_hewan kom', 'pkom.komoditas_id = kom.id');
+            $this->db_excel->join('komoditas_hewan kom', 'pkom.komoditas_id = kom.id');
         } elseif ($karantina === 'I') {
-            $this->db->join('komoditas_ikan kom', 'pkom.komoditas_id = kom.id');
+            $this->db_excel->join('komoditas_ikan kom', 'pkom.komoditas_id = kom.id');
         } else {
-            $this->db->join('komoditas_tumbuhan kom', 'pkom.komoditas_id = kom.id');
+            $this->db_excel->join('komoditas_tumbuhan kom', 'pkom.komoditas_id = kom.id');
         }
 
-        $this->applyFilter($filter);
+        $this->applyFilter($filter, $this->db_excel);
 
-        $this->db->order_by('p.id, pkom.id');
+        $this->db_excel->order_by('p.id, pkom.id');
 
-        return $this->db->get()->result_array();
+        return $this->db_excel->get()->result_array();
     }
 
-    private function applyFilter(array $filter): void
+    private function applyFilter(array $filter, $db = null): void
     {
-        $this->db->where([
+        $db = $db ?? $this->db;
+
+        $db->where([
             'p.is_verifikasi'         => '1',
             'p.is_batal'              => '0',
             'p4.deleted_at'           => '1970-01-01 08:00:00',
@@ -123,19 +128,19 @@ class Perlakuan_model extends BaseModelStrict
         ]);
 
         if (isset($filter['upt']) && $filter['upt'] != '' && !in_array(strtolower($filter['upt']), ['semua', 'all'])) {
-            $this->db->like('p.kode_satpel', substr($filter['upt'], 0, 2), 'after');
+            $db->like('p.kode_satpel', substr($filter['upt'], 0, 2), 'after');
         }
         if (!empty($filter['karantina'])) {
-            $this->db->where('p.jenis_karantina', $filter['karantina']);
+            $db->where('p.jenis_karantina', $filter['karantina']);
         }
         if (!empty($filter['lingkup']) && !in_array(strtolower($filter['lingkup']), ['all', 'semua'])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($filter['lingkup']));
+            $db->where('p.jenis_permohonan', strtoupper($filter['lingkup']));
         }
         if (!empty($filter['start_date'])) {
-            $this->db->where('p4.tanggal >=', $filter['start_date'] . ' 00:00:00');
+            $db->where('p4.tanggal >=', $filter['start_date'] . ' 00:00:00');
         }
         if (!empty($filter['end_date'])) {
-            $this->db->where('p4.tanggal <=', $filter['end_date'] . ' 23:59:59');
+            $db->where('p4.tanggal <=', $filter['end_date'] . ' 23:59:59');
         }
     }
 }

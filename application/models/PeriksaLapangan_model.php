@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class PeriksaLapangan_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     public function getAll(array $f): array
@@ -113,8 +116,8 @@ class PeriksaLapangan_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY ohp.tgl_periksa DESC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         return $query ? $query->result_array() : [];
     }
 

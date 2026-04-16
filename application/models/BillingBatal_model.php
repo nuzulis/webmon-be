@@ -6,10 +6,14 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 class BillingBatal_model extends BaseModelStrict
 {
     private $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/batal/billing';
-    
-   private $cachedData = null;
+    protected $db_excel;
+    private $cachedData = null;
 
-    public function __construct() { parent::__construct(); }
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
     public function getAll(array $f): array
     {
         return $this->fetchDataInternal($f);

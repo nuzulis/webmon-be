@@ -6,11 +6,13 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 class KwitansiBelumBayar_model extends BaseModelStrict
 {
     protected $endpoint = 'https://simponi.karantinaindonesia.go.id/epnbp/kuitansi/unpaid';
+    protected $db_excel;
     private $_cache_data = null;
 
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
     public function getIds(array $filter, int $limit, int $offset): array
     {

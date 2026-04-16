@@ -5,9 +5,17 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class PelepasanBlmByr_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     private $_cachedCount = null;
     private $_filterHash  = null;
     private $_cachedData  = [];
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
 
     private function getTable(string $karantina): string
     {
@@ -18,8 +26,10 @@ class PelepasanBlmByr_model extends BaseModelStrict
         };
     }
 
-    private function buildWhereClause(array $f): string
+    private function buildWhereClause(array $f, $db = null): string
     {
+        $db = $db ?? $this->db;
+
         $where = "p.is_batal = '0'
               AND p8.deleted_at = '1970-01-01 08:00:00'
               AND p8.nomor_seri IS NOT NULL
@@ -27,9 +37,9 @@ class PelepasanBlmByr_model extends BaseModelStrict
               AND p8.dokumen_karantina_id NOT IN (37, 42)";
 
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua'])) {
-            $upt = $this->db->escape($f['upt']);
+            $upt = $db->escape($f['upt']);
             if (strlen($f['upt']) <= 4) {
-                $like = $this->db->escape($f['upt'] . '%');
+                $like = $db->escape($f['upt'] . '%');
                 $where .= " AND (p.upt_id = $upt OR p.kode_satpel LIKE $like)";
             } else {
                 $where .= " AND p.kode_satpel = $upt";
@@ -37,14 +47,14 @@ class PelepasanBlmByr_model extends BaseModelStrict
         }
 
         if (!empty($f['start_date'])) {
-            $where .= ' AND p.tgl_aju >= ' . $this->db->escape($f['start_date'] . ' 00:00:00');
+            $where .= ' AND p.tgl_aju >= ' . $db->escape($f['start_date'] . ' 00:00:00');
         }
         if (!empty($f['end_date'])) {
-            $where .= ' AND p.tgl_aju <= ' . $this->db->escape($f['end_date'] . ' 23:59:59');
+            $where .= ' AND p.tgl_aju <= ' . $db->escape($f['end_date'] . ' 23:59:59');
         }
 
         if (!empty($f['search'])) {
-            $s = $this->db->escape('%' . $this->db->escape_like_str($f['search']) . '%');
+            $s = $db->escape('%' . $db->escape_like_str($f['search']) . '%');
             $where .= " AND (p.no_aju LIKE $s OR p8.nomor LIKE $s OR p.nama_pemohon LIKE $s)";
         }
 
@@ -151,10 +161,10 @@ class PelepasanBlmByr_model extends BaseModelStrict
     public function getFullData(array $f): array
     {
         $table = $this->getTable($f['karantina'] ?? 'T');
-        $where = $this->buildWhereClause($f);
+        $where = $this->buildWhereClause($f, $this->db_excel);
         $order = $this->buildOrderClause($f);
 
-        $res = $this->db->query($this->buildMainSql($table, $where, $order));
+        $res = $this->db_excel->query($this->buildMainSql($table, $where, $order));
         return $res ? $res->result_array() : [];
     }
 

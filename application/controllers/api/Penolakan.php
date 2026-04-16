@@ -49,8 +49,8 @@ class Penolakan extends MY_Controller
 
         $headers = [
             'No.', 'No Dokumen', 'Tgl Dokumen', 'No P6', 'Tgl P6',
-            'Satpel', 'Pengirim', 'Penerima', 'Alasan Penolakan',
-            'Petugas', 'Komoditas', 'HS', 'Volume', 'Satuan'
+            'Satpel', 'Pengirim', 'Penerima', 'Asal - Kota', 'Tujuan - Kota',
+            'Alasan Penolakan', 'Petugas', 'Komoditas', 'HS', 'Volume', 'Satuan'
         ];
 
         $data   = [];
@@ -69,6 +69,8 @@ class Penolakan extends MY_Controller
                 ($r['upt'] ?? '') . ' - ' . ($r['nama_satpel'] ?? ''),
                 $r['nama_pengirim']  ?? '',
                 $r['nama_penerima']  ?? '',
+                $r['asal'] . ' - ' . $r['kota_asal'],
+                $r['tujuan'] . ' - ' . $r['kota_tujuan'],
                 $r['alasan_string']  ?? '',
                 $r['petugas']        ?? '',
                 $r['komoditas']      ?? '',

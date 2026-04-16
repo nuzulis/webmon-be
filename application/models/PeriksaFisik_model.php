@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class PeriksaFisik_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getPelepasanTable(string $kar): string
@@ -128,8 +131,8 @@ class PeriksaFisik_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY p1b.tanggal DESC, p.id ASC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         return $query ? $query->result_array() : [];
     }
 

@@ -16,9 +16,12 @@ class Penolakan_model extends BaseModelStrict
         'alasan8' => 'Tidak bebas OPTK',
     ];
 
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getKomTable(string $kar): string
@@ -39,7 +42,7 @@ class Penolakan_model extends BaseModelStrict
                 p.id,
                 ANY_VALUE(p.tssm_id)              AS tssm_id,
                 ANY_VALUE(p.jenis_permohonan)     AS jenis_permohonan,
-                ANY_VALUE(p.tgl_dok_permohonan)   AS tgl_dok_perm
+                ANY_VALUE(p.tgl_dok_permohonan)   AS tgl_dok_perm,
                 MAX(p.no_dok_permohonan)           AS no_dok_permohonan,
                 MAX(p6.nomor)                      AS nomor_penolakan,
                 MAX(p6.tanggal)                    AS tgl_penolakan,
@@ -155,8 +158,8 @@ class Penolakan_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY p6.tanggal DESC, p.id ASC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         $rows  = $query ? $query->result_array() : [];
 
         foreach ($rows as &$r) {

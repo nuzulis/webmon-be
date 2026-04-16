@@ -4,37 +4,47 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class BatalSertif_model extends BaseModelStrict
 {
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     private function getPelepasanTable($karantina) {
         $map = ['H' => 'pn_pelepasan_kh', 'I' => 'pn_pelepasan_ki', 'T' => 'pn_pelepasan_kt'];
         return $map[strtoupper($karantina ?? 'T')] ?? $map['T'];
     }
 
-    private function applyFilters($f, $table, $pegawaiJoined = false) {
-        $this->db->where('p.is_batal', '0');
+    private function applyFilters($f, $table, $pegawaiJoined = false, $db = null) {
+        $db = $db ?? $this->db;
+
+        $db->where('p.is_batal', '0');
         if (!empty($f['upt']) && $f['upt'] !== 'all') {
-            $this->db->where('p.upt_id', $f['upt']);
+            $db->where('p.upt_id', $f['upt']);
         }
         $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
         if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+            $db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
-            $this->db->where('p8.tanggal >=', $f['start_date']);
-            $this->db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
+            $db->where('p8.tanggal >=', $f['start_date']);
+            $db->where('p8.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
-        $this->db->where('p8.nomor_seri IS NOT NULL', null, false);
+        $db->where('p8.nomor_seri IS NOT NULL', null, false);
         if (!empty($f['search'])) {
             $q = $f['search'];
-            $this->db->group_start();
-                $this->db->like('p8.nomor', $q);
-                $this->db->or_like('p8.nomor_seri', $q);
-                $this->db->or_like('p.no_aju', $q);
-                $this->db->or_like('p8.alasan_delete', $q);
+            $db->group_start();
+                $db->like('p8.nomor', $q);
+                $db->or_like('p8.nomor_seri', $q);
+                $db->or_like('p.no_aju', $q);
+                $db->or_like('p8.alasan_delete', $q);
                 if ($pegawaiJoined) {
-                    $this->db->or_like('mp1.nama', $q);
-                    $this->db->or_like('mp2.nama', $q);
+                    $db->or_like('mp1.nama', $q);
+                    $db->or_like('mp2.nama', $q);
                 }
-            $this->db->group_end();
+            $db->group_end();
         }
     }
 
@@ -131,7 +141,7 @@ class BatalSertif_model extends BaseModelStrict
         $table = $this->getPelepasanTable($f['karantina'] ?? 'T');
         $wkt   = '1970-01-01 08:00:00';
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id,
             IF(p.tssm_id IS NOT NULL, 'SSM', 'PTK') AS sumber,
             p.no_aju,
@@ -153,15 +163,15 @@ class BatalSertif_model extends BaseModelStrict
         ->join('master_pegawai mp1', 'p8.user_ttd_id = mp1.id', 'left')
         ->join('master_pegawai mp2', 'p8.user_delete = mp2.id', 'left');
 
-        $this->applyFilters($f, $table, true);
-        $this->db->where("p8.deleted_at != '$wkt'", null, false);
-        $this->db->where("NOT EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
+        $this->applyFilters($f, $table, true, $this->db_excel);
+        $this->db_excel->where("p8.deleted_at != '$wkt'", null, false);
+        $this->db_excel->where("NOT EXISTS (SELECT 1 FROM $table px WHERE px.ptk_id = p.id AND px.deleted_at = '$wkt')", null, false);
 
         $sortCol   = (($f['sort_by'] ?? '') === 'no_dok') ? 'p8.nomor' : 'p8.tanggal';
         $sortOrder = strtoupper($f['sort_order'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
-        $this->db->order_by('p.id', $sortOrder);
-        $this->db->order_by($sortCol, $sortOrder);
+        $this->db_excel->order_by('p.id', $sortOrder);
+        $this->db_excel->order_by($sortCol, $sortOrder);
 
-        return $this->db->get()->result_array();
+        return $this->db_excel->get()->result_array();
     }
 }

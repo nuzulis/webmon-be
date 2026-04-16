@@ -11,9 +11,12 @@ class Penahanan_model extends BaseModelStrict
         'alasan3' => 'Tidak disertai dokumen karantina dan/atau dokumen lain yang dipersyaratkan saat tiba di tempat pemasukan',
     ];
 
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getKomTable(string $kar): string
@@ -87,8 +90,10 @@ class Penahanan_model extends BaseModelStrict
                 mu.nama     AS upt,
                 p.nama_pengirim,
                 p.nama_penerima,
-                mn1.nama    AS asal,
-                mn2.nama    AS tujuan,
+                mn1.nama AS asal,
+                mn2.nama AS tujuan,
+                mn3.nama AS kota_asal,
+                mn4.nama AS kota_tujuan
                 mp.nama     AS petugas,
                 k.nama      AS komoditas,
                 pk.volumeP5 AS volume,
@@ -98,8 +103,10 @@ class Penahanan_model extends BaseModelStrict
             JOIN ptk p              ON p5.ptk_id = p.id
             LEFT JOIN master_upt mu ON p.kode_satpel = mu.id
             LEFT JOIN master_pegawai mp  ON p5.user_ttd_id = mp.id
-            LEFT JOIN master_negara mn1  ON p.negara_asal_id = mn1.id
-            LEFT JOIN master_negara mn2  ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_negara mn1   ON p.negara_asal_id = mn1.id
+            LEFT JOIN master_negara mn2   ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_kota_kab mn3 ON p.kota_kab_asal_id = mn3.id
+            LEFT JOIN master_kota_kab mn4 ON p.kota_kab_tujuan_id = mn4.id
             JOIN ptk_komoditas pk
                 ON p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'
             JOIN $komTable k  ON pk.komoditas_id = k.id
@@ -114,8 +121,8 @@ class Penahanan_model extends BaseModelStrict
         $this->applyFilter($f, $sql, $params);
         $sql .= " ORDER BY p5.tanggal DESC";
 
-        $this->db->reconnect();
-        $query = $this->db->query($sql, $params);
+        $this->db_excel->reconnect();
+        $query = $this->db_excel->query($sql, $params);
         $rows  = $query ? $query->result_array() : [];
 
         foreach ($rows as &$row) {

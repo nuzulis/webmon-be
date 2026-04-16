@@ -5,6 +5,14 @@ require_once APPPATH . 'models/BaseModelStrict.php';
 
 class Tangkapan_model extends BaseModelStrict
 {
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     private function komTable(string $karantina): string
     {
         return match (strtoupper($karantina)) {
@@ -81,7 +89,7 @@ class Tangkapan_model extends BaseModelStrict
     {
         $tableKom = $this->komTable($f['karantina'] ?? 'T');
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id,
             p3.nomor AS no_p3,
             p3.tanggal AS tgl_p3,
@@ -122,36 +130,38 @@ class Tangkapan_model extends BaseModelStrict
         ->join('master_kota_kab kab1', 'p.kota_kab_asal_id = kab1.id', 'left')
         ->join('master_kota_kab kab2', 'p.kota_kab_tujuan_id = kab2.id', 'left');
 
-        $this->applyFilter($f);
+        $this->applyFilter($f, $this->db_excel);
 
-        $this->db->order_by('p3.nomor', 'ASC');
+        $this->db_excel->order_by('p3.nomor', 'ASC');
 
-        return $this->db->get()->result_array();
+        return $this->db_excel->get()->result_array();
     }
 
-    private function applyFilter(array $f): void
+    private function applyFilter(array $f, $db = null): void
     {
-        $this->db->where('p.is_batal', '0')
-                 ->where('p.upt_id <>', '1000');
+        $db = $db ?? $this->db;
+
+        $db->where('p.is_batal', '0')
+           ->where('p.upt_id <>', '1000');
 
         if (!empty($f['upt']) && $f['upt'] !== 'all') {
-            $this->db->where('p.upt_id', $f['upt']);
+            $db->where('p.upt_id', $f['upt']);
         }
 
         if (!empty($f['karantina'])) {
-            $this->db->where('p.jenis_karantina', substr($f['karantina'], -1));
+            $db->where('p.jenis_karantina', substr($f['karantina'], -1));
         }
 
         $lingkup = $f['lingkup'] ?? ($f['permohonan'] ?? '');
         if (!empty($lingkup) && !in_array(strtolower($lingkup), ['all', 'semua', ''])) {
-            $this->db->where('p.jenis_permohonan', strtoupper($lingkup));
+            $db->where('p.jenis_permohonan', strtoupper($lingkup));
         }
 
         if (!empty($f['start_date'])) {
-            $this->db->where('p3.tanggal >=', $f['start_date'] . ' 00:00:00');
+            $db->where('p3.tanggal >=', $f['start_date'] . ' 00:00:00');
         }
         if (!empty($f['end_date'])) {
-            $this->db->where('p3.tanggal <=', $f['end_date'] . ' 23:59:59');
+            $db->where('p3.tanggal <=', $f['end_date'] . ' 23:59:59');
         }
     }
 }

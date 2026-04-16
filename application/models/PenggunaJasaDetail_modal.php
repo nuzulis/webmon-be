@@ -5,6 +5,14 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class PenggunaJasaDetail_model extends BaseModelStrict {
 
+    protected $db_excel;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
+    }
+
     public function getIds(array $filter, int $limit, int $offset): array
     {
         $this->db->select('pj.id');

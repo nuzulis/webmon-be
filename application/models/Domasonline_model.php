@@ -5,9 +5,12 @@ require_once APPPATH . 'core/BaseModelStrict.php';
 
 class Domasonline_model extends BaseModelStrict
 {
+    protected $db_excel;
+
     public function __construct()
     {
         parent::__construct();
+        $this->db_excel = $this->load->database('excel', TRUE);
     }
 
     private function getTable($karantina) {
@@ -107,21 +110,23 @@ public function getAll(array $f): array
         return $this->db->get()->result_array();
     }
 
-    private function applyManualFilter($f) {
+    private function applyManualFilter($f, $db = null) {
+        $db = $db ?? $this->db;
+
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all','semua'])) {
             $prefix = substr($f['upt'], 0, 2);
-            $this->db->like("target_upt.kode_upt", $prefix, 'after');
+            $db->like("target_upt.kode_upt", $prefix, 'after');
         }
 
         if (!empty($f['start_date']) && !empty($f['end_date'])) {
-            $this->db->where("p8.tanggal >=", $f['start_date'] . ' 00:00:00');
-            $this->db->where("p8.tanggal <=", $f['end_date'] . ' 23:59:59');
+            $db->where("p8.tanggal >=", $f['start_date'] . ' 00:00:00');
+            $db->where("p8.tanggal <=", $f['end_date'] . ' 23:59:59');
         }
 
-        $this->db->where('p.jenis_permohonan', 'DK');
-        $this->db->where('p.is_verifikasi', '1');
-        $this->db->where('p.is_batal', '0');
-        $this->db->where('p8.deleted_at', '1970-01-01 08:00:00');
+        $db->where('p.jenis_permohonan', 'DK');
+        $db->where('p.is_verifikasi', '1');
+        $db->where('p.is_batal', '0');
+        $db->where('p8.deleted_at', '1970-01-01 08:00:00');
     }
 
     public function getFullData($f)
@@ -132,7 +137,7 @@ public function getAll(array $f): array
         $kar = strtoupper(substr($f['karantina'], -1));
         $tabel_kom = "komoditas_" . ($kar == 'H' ? 'hewan' : ($kar == 'I' ? 'ikan' : 'tumbuhan'));
 
-        $this->db->select("
+        $this->db_excel->select("
             p.id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
             p8.nomor AS nkt, p8.tanggal AS tanggal_lepas,
             mu_asal.nama AS upt_asal, mu_asal.nama_satpel AS satpel_asal,
@@ -148,7 +153,7 @@ public function getAll(array $f): array
             dm.tgl_dok_permohonan AS tgl_dok_dm
         ", false);
 
-        $this->db->from('ptk p')
+        $this->db_excel->from('ptk p')
             ->join("$table p8", "p.id = p8.ptk_id")
             ->join('master_upt mu_asal', 'p.kode_satpel = mu_asal.id', 'left')
             ->join('ptk_komoditas pkom', "p.id = pkom.ptk_id AND pkom.deleted_at = '1970-01-01 08:00:00'", 'left')
@@ -160,10 +165,10 @@ public function getAll(array $f): array
             ->join('master_kota_kab mn4', 'p.kota_kab_tujuan_id = mn4.id', 'left')
             ->join('ptk dm', 'p.id = dm.ptk_asal_id', 'left');
 
-        $this->applyManualFilter($f);
+        $this->applyManualFilter($f, $this->db_excel);
 
-        return $this->db->order_by('p8.tanggal', 'DESC')
-                        ->order_by('p.id', 'ASC')
-                        ->get()->result_array();
+        return $this->db_excel->order_by('p8.tanggal', 'DESC')
+                              ->order_by('p.id', 'ASC')
+                              ->get()->result_array();
     }
 }
