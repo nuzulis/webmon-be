@@ -18,9 +18,21 @@ class DownloadLaporan extends CI_Controller {
         $bulan      = $input['bulan'] ?? '';
         $karantina  = $input['karantina'] ?? '';
         $permohonan = $input['permohonan'] ?? '';
+        $jenis = $input['jenis'] ?? '';
+        $tahun = $input['tahun'] ?? '';
         $upt = $this->db->get_where('master_upt', ['kode_upt' => $kodeUpt])->row();
 
         if (!$upt) {
+            if($jenis && $tahun) {
+                $jenis = strtolower($jenis);
+                $karantina = strtolower($karantina);
+                $permohonan = strtolower($permohonan);
+                $fileNamePattern = "laporan_{$jenis}_{$karantina}_{$permohonan}_{$tahun}_{$bulan}.xlsx";
+    
+                $targetPath = base_url("laporan/" . $fileNamePattern);
+                echo json_encode(['status' => 'success', 'fileUrl' => $targetPath]);
+                return;
+            }
             echo json_encode(['status' => 'error', 'message' => 'UPT tidak ditemukan']);
             return;
         }
@@ -31,7 +43,7 @@ class DownloadLaporan extends CI_Controller {
         $regionalFolder = ($regId == 5) ? 'BALI NUSRA' : $regionalTag;
 
         $uptFormatted = $this->_format_upt($upt->nama);
-        $fileNamePattern = "{$bulan}_{$permohonan}_{$karantina}_{$regionalTag}_{$uptFormatted}.xls";
+        $fileNamePattern = "{$bulan}_{$permohonan}_{$karantina}_{$regionalTag}_{$uptFormatted}.xlsx";
         
         $targetPath = FCPATH . "laporan/" . $regionalFolder . "/";
         $files = glob($targetPath . "*{$fileNamePattern}*");

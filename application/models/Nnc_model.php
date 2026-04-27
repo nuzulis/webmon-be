@@ -61,7 +61,7 @@ class Nnc_model extends BaseModelStrict
                 MAX(mn1.nama) AS asal,  MAX(mn3.nama) AS kota_asal,
                 MAX(mn2.nama) AS tujuan, MAX(mn4.nama) AS kota_tujuan
             FROM ptk p
-            JOIN pn_penolakan p6       ON p.id = p6.ptk_id
+            JOIN pn_penolakan p6       ON p.id = p6.ptk_id AND p6.dokumen_karantina_id = 32
             JOIN master_upt mu         ON p.kode_satpel = mu.id
             JOIN master_upt mt         ON p.upt_id = mt.id
             JOIN master_pegawai mp     ON p6.user_ttd_id = mp.id
@@ -84,7 +84,6 @@ class Nnc_model extends BaseModelStrict
             WHERE p.is_verifikasi        = '1'
               AND p.is_batal             = '0'
               AND p6.deleted_at          = '1970-01-01 08:00:00'
-              AND p6.dokumen_karantina_id = '32'
         ";
 
         $params = [];
