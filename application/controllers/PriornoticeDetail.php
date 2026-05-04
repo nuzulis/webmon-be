@@ -4,7 +4,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 /**
  * @property M_Priornotice $M_Priornotice
  */
-class PriornoticeDetail extends MY_Controller
+class priorNoticeDetail extends MY_Controller
 {
     public function __construct()
     {
