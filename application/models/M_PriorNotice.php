@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class M_Priornotice extends CI_Model
+class M_PriorNotice extends CI_Model
 {
     private string $apiUrl = 'https://api3.karantinaindonesia.go.id/rest-prior/docPrior/getAll';
     private string $authHeader = 'Basic bXJpZHdhbjpaPnV5JCx+NjR7KF42WDQm';
