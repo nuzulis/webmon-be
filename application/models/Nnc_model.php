@@ -121,7 +121,7 @@ class Nnc_model extends BaseModelStrict
                 kt.nama AS komoditas,
                 pk.kode_hs        AS hs,
                 pk.kode_hs10        AS hs10,
-                pk.volume_lain    AS volume_lain,
+                pk.volume_lain    AS volume,
                 pk.volumeP4    AS volumeP4,
                 pk.volumeP5    AS volumeP5,
                 pk.volumeP6    AS volumeP6,
@@ -188,7 +188,7 @@ class Nnc_model extends BaseModelStrict
             $params[] = $f['start_date'] . ' 00:00:00';
             $params[] = $f['end_date']   . ' 23:59:59';
         }
-        
+
         if (!empty($f['upt']) && !in_array(strtolower($f['upt']), ['all', 'semua', 'undefined'], true)) {
             $field    = (strlen($f['upt']) <= 4) ? 'p.upt_id' : 'p.kode_satpel';
             $sql     .= " AND $field = ?";
