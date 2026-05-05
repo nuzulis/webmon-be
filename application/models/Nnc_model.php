@@ -107,69 +107,41 @@ class Nnc_model extends BaseModelStrict
 
         $sql = "
             SELECT
-                p.id,
-                p.tssm_id,
-                p.no_aju,
-                p.no_dok_permohonan,
-                p.tgl_dok_permohonan,
-                p6.nomor   AS nomor_penolakan,
-                p6.tanggal AS tgl_penolakan,
-                REPLACE(REPLACE(MAX(mt.nama),
+                p.id, p.tssm_id, p.no_aju, p.no_dok_permohonan, p.tgl_dok_permohonan,
+                p6.nomor AS nomor_penolakan, p6.tanggal AS tgl_penolakan,
+                p6.kepada, p6.consignment AS consignment_desc,
+                p6.consignment_detil, p6.information,
+                REPLACE(REPLACE(mt.nama,
                     'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT'),
                     'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT') AS upt_raw,
-                mu.nama_satpel,
-                mp.nama               AS petugas,
-                p.nama_pengirim,
-                p.nama_penerima,
-                kt.nama AS komoditas,
-                pk.kode_hs        AS hs,
-                pk.kode_hs10        AS hs10,
-                pk.volume_lain    AS volume,
-                pk.volumeP4    AS volumeP4,
-                pk.volumeP5    AS volumeP5,
-                pk.volumeP6    AS volumeP6,
-                pk.volumeP7    AS volumeP7,
-                pk.volumeP8    AS volumeP8,
-                ms.nama    AS satuan,
-                MAX(p6.alasan1) AS alasan1, 
-                MAX(p6.alasan2) AS alasan2,
-                MAX(p6.alasan3) AS alasan3, 
-                MAX(p6.alasan4) AS alasan4,
-                MAX(p6.alasan5) AS alasan5, 
-                MAX(p6.alasan6) AS alasan6,
-                MAX(p6.alasan7) AS alasan7, 
-                MAX(p6.alasan8) AS alasan8,
-                MAX(p6.alasan_lain)        AS alasan_lain,
-                MAX(p6.specify1)           AS specify1, 
-                MAX(p6.specify2) AS specify2,
-                MAX(p6.specify3)           AS specify3, 
-                MAX(p6.specify4) AS specify4,
-                MAX(p6.specify5)           AS specify5,
-                MAX(p6.consignment)        AS consignment_desc,
-                MAX(p6.consignment_detil)  AS consignment_detil,
-                MAX(p6.information)        AS information,
-                MAX(p6.kepada)             AS kepada,
-                MAX(mn1.nama) AS asal,  MAX(mn3.nama) AS kota_asal,
-                MAX(mn2.nama) AS tujuan, MAX(mn4.nama) AS kota_tujuan
+                mu.nama_satpel, p.nama_pengirim, p.nama_penerima, mp.nama AS petugas,
+                kt.nama AS komoditas, pk.volumeP6 AS volume, ms.nama AS satuan, pk.kode_hs,
+                p6.alasan1, p6.alasan2, p6.alasan3, p6.alasan4,
+                p6.alasan5, p6.alasan6, p6.alasan7, p6.alasan8, p6.alasan_lain,
+                COALESCE(p6.specify1, '') AS specify1, COALESCE(p6.specify2, '') AS specify2,
+                COALESCE(p6.specify3, '') AS specify3, COALESCE(p6.specify4, '') AS specify4,
+                COALESCE(p6.specify5, '') AS specify5,
+                COALESCE(mn1.nama, '') AS asal,   COALESCE(mn3.nama, '') AS kota_asal,
+                COALESCE(mn2.nama, '') AS tujuan, COALESCE(mn4.nama, '') AS kota_tujuan
             FROM ptk p
-            JOIN pn_penolakan p6 ON p.id = p6.ptk_id AND p6.dokumen_karantina_id = 32 AND p6.deleted_at = '1970-01-01 08:00:00'
-            JOIN master_upt mu         ON p.kode_satpel = mu.id
-            JOIN master_upt mt         ON p.upt_id = mt.id
-            JOIN master_pegawai mp     ON p6.user_ttd_id = mp.id
-            LEFT JOIN master_negara mn1     ON p.negara_asal_id = mn1.id
-            LEFT JOIN master_negara mn2     ON p.negara_tujuan_id = mn2.id
-            LEFT JOIN master_kota_kab mn3   ON p.kota_kab_asal_id = mn3.id
-            LEFT JOIN master_kota_kab mn4   ON p.kota_kab_tujuan_id = mn4.id
-            LEFT JOIN ptk_komoditas pk ON p.id = pk.ptk_id
-            LEFT JOIN $komTable kt ON pk.komoditas_id = kt.id AND pk.deleted_at = '1970-01-01 08:00:00'
-            LEFT JOIN master_satuan ms ON pk.satuan_lain_id = ms.id
+            JOIN pn_penolakan p6    ON p.id = p6.ptk_id AND p6.deleted_at          = '1970-01-01 08:00:00' AND p6.dokumen_karantina_id = '32'
+            JOIN master_upt mu      ON p.kode_satpel = mu.id
+            JOIN master_upt mt      ON p.upt_id = mt.id
+            JOIN master_pegawai mp  ON p6.user_ttd_id = mp.id
+            JOIN ptk_komoditas pk   ON p.id = pk.ptk_id AND pk.deleted_at = '1970-01-01 08:00:00'
+            JOIN $komTable kt       ON pk.komoditas_id = kt.id
+            LEFT JOIN master_satuan ms    ON pk.satuan_lain_id = ms.id
+            LEFT JOIN master_negara mn1   ON p.negara_asal_id = mn1.id
+            LEFT JOIN master_negara mn2   ON p.negara_tujuan_id = mn2.id
+            LEFT JOIN master_kota_kab mn3 ON p.kota_kab_asal_id = mn3.id
+            LEFT JOIN master_kota_kab mn4 ON p.kota_kab_tujuan_id = mn4.id
             WHERE p.is_verifikasi        = '1'
               AND p.is_batal             = '0'
         ";
 
         $params = [];
         $this->applyFilter($f, $sql, $params);
-        $sql .= " GROUP BY p.id ORDER BY p6.tanggal DESC";
+        $sql .= " ORDER BY p6.tanggal DESC, p.no_aju ASC";
 
         $this->db_excel->reconnect();
         $this->db->query('SET SESSION sql_mode = ""');
