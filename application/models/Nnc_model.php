@@ -29,30 +29,42 @@ class Nnc_model extends BaseModelStrict
         $sql = "
             SELECT
                 p.id,
-                ANY_VALUE(p.tssm_id)             AS tssm_id,
-                ANY_VALUE(p.no_aju)              AS no_aju,
-                ANY_VALUE(p.no_dok_permohonan)   AS no_dok_permohonan,
-                ANY_VALUE(p.tgl_dok_permohonan)  AS tgl_dok_permohonan,
-                MAX(p6.nomor)   AS nomor_penolakan,
-                MAX(p6.tanggal) AS tgl_penolakan,
+                p.tssm_id,
+                p.no_aju,
+                p.no_dok_permohonan,
+                p.tgl_dok_permohonan,
+                p6.nomor   AS nomor_penolakan,
+                p6.tanggal AS tgl_penolakan,
                 REPLACE(REPLACE(MAX(mt.nama),
                     'Balai Besar Karantina Hewan, Ikan, dan Tumbuhan', 'BBKHIT'),
                     'Balai Karantina Hewan, Ikan, dan Tumbuhan', 'BKHIT') AS upt_raw,
-                MAX(mu.nama_satpel) AS nama_satpel,
-                MAX(mp.nama)               AS petugas,
-                ANY_VALUE(p.nama_pengirim) AS nama_pengirim,
-                ANY_VALUE(p.nama_penerima) AS nama_penerima,
-                ANY_VALUE(k_data.komoditas_list) AS komoditas,
-                ANY_VALUE(k_data.hs_list)        AS hs,
-                ANY_VALUE(k_data.volume_list)    AS volume,
-                ANY_VALUE(k_data.satuan_list)    AS satuan,
-                MAX(p6.alasan1) AS alasan1, MAX(p6.alasan2) AS alasan2,
-                MAX(p6.alasan3) AS alasan3, MAX(p6.alasan4) AS alasan4,
-                MAX(p6.alasan5) AS alasan5, MAX(p6.alasan6) AS alasan6,
-                MAX(p6.alasan7) AS alasan7, MAX(p6.alasan8) AS alasan8,
+                mu.nama_satpel,
+                mp.nama               AS petugas,
+                p.nama_pengirim,
+                p.nama_penerima,
+                kt.nama AS komoditas,
+                pk.kode_hs        AS hs,
+                pk.kode_hs10        AS hs10,
+                pk.volume_lain    AS volume,
+                pk.volumeP4    AS volumeP4,
+                pk.volumeP5    AS volumeP5,
+                pk.volumeP6    AS volumeP6,
+                pk.volumeP7    AS volumeP7,
+                pk.volumeP8    AS volumeP8,
+                ms.nama    AS satuan,
+                MAX(p6.alasan1) AS alasan1, 
+                MAX(p6.alasan2) AS alasan2,
+                MAX(p6.alasan3) AS alasan3, 
+                MAX(p6.alasan4) AS alasan4,
+                MAX(p6.alasan5) AS alasan5, 
+                MAX(p6.alasan6) AS alasan6,
+                MAX(p6.alasan7) AS alasan7, 
+                MAX(p6.alasan8) AS alasan8,
                 MAX(p6.alasan_lain)        AS alasan_lain,
-                MAX(p6.specify1)           AS specify1, MAX(p6.specify2) AS specify2,
-                MAX(p6.specify3)           AS specify3, MAX(p6.specify4) AS specify4,
+                MAX(p6.specify1)           AS specify1, 
+                MAX(p6.specify2) AS specify2,
+                MAX(p6.specify3)           AS specify3, 
+                MAX(p6.specify4) AS specify4,
                 MAX(p6.specify5)           AS specify5,
                 MAX(p6.consignment)        AS consignment_desc,
                 MAX(p6.consignment_detil)  AS consignment_detil,
@@ -61,7 +73,7 @@ class Nnc_model extends BaseModelStrict
                 MAX(mn1.nama) AS asal,  MAX(mn3.nama) AS kota_asal,
                 MAX(mn2.nama) AS tujuan, MAX(mn4.nama) AS kota_tujuan
             FROM ptk p
-            JOIN pn_penolakan p6       ON p.id = p6.ptk_id AND p6.dokumen_karantina_id = 32
+            JOIN pn_penolakan p6 ON p.id = p6.ptk_id AND p6.dokumen_karantina_id = 32 AND p6.deleted_at = '1970-01-01 08:00:00'
             JOIN master_upt mu         ON p.kode_satpel = mu.id
             JOIN master_upt mt         ON p.upt_id = mt.id
             JOIN master_pegawai mp     ON p6.user_ttd_id = mp.id
@@ -69,31 +81,22 @@ class Nnc_model extends BaseModelStrict
             LEFT JOIN master_negara mn2     ON p.negara_tujuan_id = mn2.id
             LEFT JOIN master_kota_kab mn3   ON p.kota_kab_asal_id = mn3.id
             LEFT JOIN master_kota_kab mn4   ON p.kota_kab_tujuan_id = mn4.id
-            LEFT JOIN (
-                SELECT pk.ptk_id,
-                       GROUP_CONCAT(CONCAT('• ', kt.nama)   SEPARATOR '<br>') AS komoditas_list,
-                       GROUP_CONCAT(DISTINCT pk.kode_hs     SEPARATOR '<br>') AS hs_list,
-                       GROUP_CONCAT(pk.volumeP6             SEPARATOR '<br>') AS volume_list,
-                       GROUP_CONCAT(COALESCE(ms.nama, '-')  SEPARATOR '<br>') AS satuan_list
-                FROM ptk_komoditas pk
-                JOIN $komTable kt ON pk.komoditas_id = kt.id
-                LEFT JOIN master_satuan ms ON pk.satuan_lain_id = ms.id
-                WHERE pk.deleted_at = '1970-01-01 08:00:00'
-                GROUP BY pk.ptk_id
-            ) k_data ON p.id = k_data.ptk_id
+            LEFT JOIN ptk_komoditas pk ON p.id = pk.ptk_id
+            LEFT JOIN $komTable kt ON pk.komoditas_id = kt.id AND pk.deleted_at = '1970-01-01 08:00:00'
+            LEFT JOIN master_satuan ms ON pk.satuan_lain_id = ms.id
             WHERE p.is_verifikasi        = '1'
               AND p.is_batal             = '0'
-              AND p6.deleted_at          = '1970-01-01 08:00:00'
         ";
 
         $params = [];
         $this->applyFilter($f, $sql, $params);
-        $sql .= " GROUP BY p.id ORDER BY MAX(p6.tanggal) DESC";
+        $sql .= " GROUP BY p.id ORDER BY p6.tanggal DESC";
         // var_dump($sql);
         // var_dump($params);
         // die();
 
         $this->db->reconnect();
+        $this->db->query('SET SESSION sql_mode = ""');
         $query = $this->db->query($sql, $params);
         return $this->formatNncData($query ? $query->result_array() : []);
     }
@@ -149,14 +152,7 @@ class Nnc_model extends BaseModelStrict
                 MAX(mn1.nama) AS asal,  MAX(mn3.nama) AS kota_asal,
                 MAX(mn2.nama) AS tujuan, MAX(mn4.nama) AS kota_tujuan
             FROM ptk p
-            JOIN (
-		  SELECT *
-		  FROM pn_penolakan
-		  WHERE dokumen_karantina_id = 32
-		    AND deleted_at = '1970-01-01 08:00:00'
-		    AND tanggal BETWEEN ? 
-				    AND ?
-		) p6 ON p.id = p6.ptk_id
+            JOIN pn_penolakan p6 ON p.id = p6.ptk_id AND p6.dokumen_karantina_id = 32 AND p6.deleted_at = '1970-01-01 08:00:00'
             JOIN master_upt mu         ON p.kode_satpel = mu.id
             JOIN master_upt mt         ON p.upt_id = mt.id
             JOIN master_pegawai mp     ON p6.user_ttd_id = mp.id
@@ -176,6 +172,7 @@ class Nnc_model extends BaseModelStrict
         $sql .= " GROUP BY p.id ORDER BY p6.tanggal DESC";
 
         $this->db_excel->reconnect();
+        $this->db->query('SET SESSION sql_mode = ""');
         $query = $this->db_excel->query($sql, $params);
         return $this->formatNncData($query ? $query->result_array() : [], true);
     }
